@@ -30,6 +30,7 @@ tasks.named('shadowJar') {
     relocate 'org.apache.commons.compress', 'sh.pcx.packmerger.libs.commons.compress'
 
     mergeServiceFiles()
+    minimize()
 }
 
 tasks.named('build') {
