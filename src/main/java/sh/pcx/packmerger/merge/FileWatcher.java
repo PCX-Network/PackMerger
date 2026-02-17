@@ -142,6 +142,8 @@ public class FileWatcher {
                         break;
                     }
                 }
+            } catch (ClosedWatchServiceException e) {
+                // Expected during shutdown — stop() closes the watch service
             } catch (IOException e) {
                 plugin.getLogger().log(Level.SEVERE, "File watcher error", e);
             }
