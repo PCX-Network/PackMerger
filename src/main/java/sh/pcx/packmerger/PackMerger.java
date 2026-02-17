@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import sh.pcx.packmerger.commands.PackMergerCommand;
 import sh.pcx.packmerger.config.ConfigManager;
+import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.distribution.PackDistributor;
 import sh.pcx.packmerger.distribution.PlayerCacheManager;
 import sh.pcx.packmerger.listeners.PlayerJoinListener;
@@ -42,6 +43,9 @@ public class PackMerger extends JavaPlugin {
 
     /** Manages loading and access to all plugin configuration values. */
     private ConfigManager configManager;
+
+    /** Manages player-facing messages loaded from messages_en.yml. */
+    private MessageManager messageManager;
 
     /** Console logger with colored category tags and configurable log levels. */
     private PluginLogger logger;
@@ -90,6 +94,10 @@ public class PackMerger extends JavaPlugin {
 
         // Initialize the colored console logger after config is loaded
         logger = new PluginLogger(this, configManager.getLogLevel());
+
+        // Initialize player-facing messages
+        messageManager = new MessageManager(this);
+        messageManager.load();
 
         // Ensure the plugin's working directories exist before any component tries to use them
         getPacksFolder().mkdirs();
@@ -207,15 +215,13 @@ public class PackMerger extends JavaPlugin {
         // Atomically claim the merge lock — prevents concurrent merges from file watcher + commands
         if (!merging.compareAndSet(false, true)) {
             if (sender != null) {
-                sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                        .deserialize("<red>A merge is already in progress!</red>"));
+                sender.sendMessage(messageManager.getMessage("merge.already-running"));
             }
             return CompletableFuture.completedFuture(null);
         }
 
         if (sender != null) {
-            sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                    .deserialize("<yellow>Starting merge process...</yellow>"));
+            sender.sendMessage(messageManager.getMessage("merge.starting"));
         }
 
         // Run the entire pipeline off the main thread to avoid blocking the server tick loop
@@ -227,8 +233,7 @@ public class PackMerger extends JavaPlugin {
                     if (sender != null) {
                         // Return to main thread for Bukkit API calls (sendMessage)
                         Bukkit.getScheduler().runTask(this, () ->
-                                sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                                        .deserialize("<red>Merge failed — no packs found or merge error.</red>")));
+                                sender.sendMessage(messageManager.getMessage("merge.failed-no-packs")));
                     }
                     return;
                 }
@@ -260,8 +265,8 @@ public class PackMerger extends JavaPlugin {
                         if (sender != null) {
                             // Return to main thread for player messaging
                             Bukkit.getScheduler().runTask(this, () ->
-                                    sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                                            .deserialize("<green>Merge and upload complete!</green> <gray>URL: " + url + "</gray>")));
+                                    sender.sendMessage(messageManager.getMessage("merge.upload-complete",
+                                            "url", url)));
                         }
 
                         // Step 5: If the pack actually changed, handle online players
@@ -273,23 +278,22 @@ public class PackMerger extends JavaPlugin {
                         logger.error("Upload failed", e);
                         if (sender != null) {
                             Bukkit.getScheduler().runTask(this, () ->
-                                    sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                                            .deserialize("<red>Upload failed: " + e.getMessage() + "</red>")));
+                                    sender.sendMessage(messageManager.getMessage("merge.upload-failed",
+                                            "error", e.getMessage())));
                         }
                     }
                 } else {
                     if (sender != null) {
                         Bukkit.getScheduler().runTask(this, () ->
-                                sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                                        .deserialize("<green>Merge complete!</green> <gray>Auto-upload is disabled.</gray>")));
+                                sender.sendMessage(messageManager.getMessage("merge.complete-no-upload")));
                     }
                 }
             } catch (Exception e) {
                 logger.error("Merge failed", e);
                 if (sender != null) {
                     Bukkit.getScheduler().runTask(this, () ->
-                            sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
-                                    .deserialize("<red>Merge failed: " + e.getMessage() + "</red>")));
+                            sender.sendMessage(messageManager.getMessage("merge.failed",
+                                    "error", e.getMessage())));
                 }
             } finally {
                 // Always release the merge lock, even on failure
@@ -335,6 +339,7 @@ public class PackMerger extends JavaPlugin {
      */
     public void reload() {
         configManager.load();
+        messageManager.load();
         logger.setLevel(configManager.getLogLevel());
         initUploadProvider();
         stopFileWatcher();
@@ -434,6 +439,9 @@ public class PackMerger extends JavaPlugin {
 
     /** @return the plugin's configuration manager */
     public ConfigManager getConfigManager() { return configManager; }
+
+    /** @return the plugin's message manager */
+    public MessageManager getMessageManager() { return messageManager; }
 
     /** @return the plugin's colored console logger */
     public PluginLogger getPluginLogger() { return logger; }

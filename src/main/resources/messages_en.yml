@@ -1,0 +1,40 @@
+# PackMerger Player-Facing Messages
+# Uses MiniMessage formatting: https://docs.advntr.dev/minimessage/format.html
+# Placeholders use {name} syntax and are replaced before parsing.
+
+# Reload
+reload.starting: "<yellow>Reloading PackMerger...</yellow>"
+
+# Validate
+validate.no-pack: "<red>No merged pack found. Run a merge first.</red>"
+validate.starting: "<yellow>Running validation...</yellow>"
+validate.complete: "<gray>Validation complete: <yellow>{warnings}</yellow> warnings, <red>{errors}</red> errors</gray>"
+validate.error-line: "<red>{message}</red>"
+validate.warning-line: "<yellow>{message}</yellow>"
+
+# Status
+status.header: "<gold><bold>PackMerger Status</bold></gold>"
+status.server: "<gray>Server: <white>{server}</white></gray>"
+status.upload-provider: "<gray>Upload Provider: <white>{provider}</white></gray>"
+status.last-merge: "<gray>Last Merge: <white>{time}</white></gray>"
+status.pack-url: "<gray>Pack URL: <white>{url}</white></gray>"
+status.sha1: "<gray>SHA1: <white>{hash}</white></gray>"
+status.pack-size: "<gray>Pack Size: <white>{size}</white></gray>"
+status.merging: "<gray>Merging: <white>{status}</white></gray>"
+status.packs-in-folder: "<gray>Packs in folder: <white>{count}</white></gray>"
+
+# Apply
+apply.no-pack: "<red>No merged pack available. Run a merge first.</red>"
+apply.sent-all: "<green>Force-sent resource pack to {count} player(s)</green>"
+apply.sent-player: "<green>Force-sent resource pack to {player}</green>"
+apply.no-match: "<red>No matching player found.</red>"
+apply.player-error: "<red>Player not found: {error}</red>"
+
+# Merge pipeline
+merge.already-running: "<red>A merge is already in progress!</red>"
+merge.starting: "<yellow>Starting merge process...</yellow>"
+merge.failed-no-packs: "<red>Merge failed — no packs found or merge error.</red>"
+merge.upload-complete: "<green>Merge and upload complete!</green> <gray>URL: {url}</gray>"
+merge.upload-failed: "<red>Upload failed: {error}</red>"
+merge.complete-no-upload: "<green>Merge complete!</green> <gray>Auto-upload is disabled.</gray>"
+merge.failed: "<red>Merge failed: {error}</red>"

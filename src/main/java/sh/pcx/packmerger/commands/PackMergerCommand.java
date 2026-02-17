@@ -6,11 +6,11 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSele
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.merge.PackValidator;
 
 import java.io.File;
@@ -43,9 +43,6 @@ public class PackMergerCommand {
 
     /** Reference to the owning plugin for component access. */
     private final PackMerger plugin;
-
-    /** Shared MiniMessage instance for formatting chat messages. */
-    private final MiniMessage mm = MiniMessage.miniMessage();
 
     /**
      * Creates the command handler and registers all commands.
@@ -106,7 +103,8 @@ public class PackMergerCommand {
      */
     private int handleReload(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
-        sender.sendMessage(mm.deserialize("<yellow>Reloading PackMerger...</yellow>"));
+        MessageManager msg = plugin.getMessageManager();
+        sender.sendMessage(msg.getMessage("reload.starting"));
 
         plugin.reload();
         plugin.mergeAndUpload(sender);
@@ -126,14 +124,15 @@ public class PackMergerCommand {
      */
     private int handleValidate(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
+        MessageManager msg = plugin.getMessageManager();
 
         File outputFile = plugin.getOutputFile();
         if (!outputFile.exists()) {
-            sender.sendMessage(mm.deserialize("<red>No merged pack found. Run a merge first.</red>"));
+            sender.sendMessage(msg.getMessage("validate.no-pack"));
             return 0;
         }
 
-        sender.sendMessage(mm.deserialize("<yellow>Running validation...</yellow>"));
+        sender.sendMessage(msg.getMessage("validate.starting"));
 
         // Run validation off the main thread to avoid blocking the server
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -141,16 +140,18 @@ public class PackMergerCommand {
 
             // Return to the main thread to send player messages
             Bukkit.getScheduler().runTask(plugin, () -> {
-                sender.sendMessage(mm.deserialize("<gray>Validation complete: <yellow>" +
-                        result.warnings() + "</yellow> warnings, <red>" +
-                        result.errors() + "</red> errors</gray>"));
+                sender.sendMessage(msg.getMessage("validate.complete",
+                        "warnings", String.valueOf(result.warnings()),
+                        "errors", String.valueOf(result.errors())));
 
                 if (!result.messages().isEmpty()) {
-                    for (String msg : result.messages()) {
-                        if (msg.startsWith("ERROR:")) {
-                            sender.sendMessage(mm.deserialize("<red>" + escapeMinimessage(msg) + "</red>"));
+                    for (String line : result.messages()) {
+                        if (line.startsWith("ERROR:")) {
+                            sender.sendMessage(msg.getMessage("validate.error-line",
+                                    "message", line));
                         } else {
-                            sender.sendMessage(mm.deserialize("<yellow>" + escapeMinimessage(msg) + "</yellow>"));
+                            sender.sendMessage(msg.getMessage("validate.warning-line",
+                                    "message", line));
                         }
                     }
                 }
@@ -168,17 +169,23 @@ public class PackMergerCommand {
      */
     private int handleStatus(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
+        MessageManager msg = plugin.getMessageManager();
 
-        sender.sendMessage(mm.deserialize("<gold><bold>PackMerger Status</bold></gold>"));
-        sender.sendMessage(mm.deserialize("<gray>Server: <white>" + plugin.getConfigManager().getServerName() + "</white></gray>"));
-        sender.sendMessage(mm.deserialize("<gray>Upload Provider: <white>" + plugin.getConfigManager().getUploadProvider() + "</white></gray>"));
-        sender.sendMessage(mm.deserialize("<gray>Last Merge: <white>" + plugin.getFormattedLastMergeTime() + "</white></gray>"));
+        sender.sendMessage(msg.getMessage("status.header"));
+        sender.sendMessage(msg.getMessage("status.server",
+                "server", plugin.getConfigManager().getServerName()));
+        sender.sendMessage(msg.getMessage("status.upload-provider",
+                "provider", plugin.getConfigManager().getUploadProvider()));
+        sender.sendMessage(msg.getMessage("status.last-merge",
+                "time", plugin.getFormattedLastMergeTime()));
 
         String url = plugin.getCurrentPackUrl();
-        sender.sendMessage(mm.deserialize("<gray>Pack URL: <white>" + (url != null ? url : "N/A") + "</white></gray>"));
+        sender.sendMessage(msg.getMessage("status.pack-url",
+                "url", url != null ? url : "N/A"));
 
         String hash = plugin.getCurrentPackHashHex();
-        sender.sendMessage(mm.deserialize("<gray>SHA1: <white>" + (hash != null ? hash : "N/A") + "</white></gray>"));
+        sender.sendMessage(msg.getMessage("status.sha1",
+                "hash", hash != null ? hash : "N/A"));
 
         // Display the output file size if it exists
         File outputFile = plugin.getOutputFile();
@@ -188,10 +195,12 @@ public class PackMergerCommand {
             if (size < 1024) sizeStr = size + " B";
             else if (size < 1024 * 1024) sizeStr = String.format("%.1f KB", size / 1024.0);
             else sizeStr = String.format("%.1f MB", size / (1024.0 * 1024));
-            sender.sendMessage(mm.deserialize("<gray>Pack Size: <white>" + sizeStr + "</white></gray>"));
+            sender.sendMessage(msg.getMessage("status.pack-size",
+                    "size", sizeStr));
         }
 
-        sender.sendMessage(mm.deserialize("<gray>Merging: <white>" + (plugin.isMerging() ? "Yes" : "No") + "</white></gray>"));
+        sender.sendMessage(msg.getMessage("status.merging",
+                "status", plugin.isMerging() ? "Yes" : "No"));
 
         // Count and display the number of packs in the packs folder
         File packsFolder = plugin.getPacksFolder();
@@ -204,7 +213,8 @@ public class PackMergerCommand {
                 if (f.getName().startsWith(".")) continue;
                 if (f.isDirectory() || f.getName().endsWith(".zip")) count++;
             }
-            sender.sendMessage(mm.deserialize("<gray>Packs in folder: <white>" + count + "</white></gray>"));
+            sender.sendMessage(msg.getMessage("status.packs-in-folder",
+                    "count", String.valueOf(count)));
         }
 
         return 1;
@@ -219,15 +229,17 @@ public class PackMergerCommand {
      */
     private int handleApplyAll(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
+        MessageManager msg = plugin.getMessageManager();
 
         if (plugin.getCurrentPackUrl() == null) {
-            sender.sendMessage(mm.deserialize("<red>No merged pack available. Run a merge first.</red>"));
+            sender.sendMessage(msg.getMessage("apply.no-pack"));
             return 0;
         }
 
         int count = Bukkit.getOnlinePlayers().size();
         plugin.getDistributor().sendToAll(true);
-        sender.sendMessage(mm.deserialize("<green>Force-sent resource pack to " + count + " player(s)</green>"));
+        sender.sendMessage(msg.getMessage("apply.sent-all",
+                "count", String.valueOf(count)));
         return 1;
     }
 
@@ -240,9 +252,10 @@ public class PackMergerCommand {
      */
     private int handleApplyPlayer(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
+        MessageManager msg = plugin.getMessageManager();
 
         if (plugin.getCurrentPackUrl() == null) {
-            sender.sendMessage(mm.deserialize("<red>No merged pack available. Run a merge first.</red>"));
+            sender.sendMessage(msg.getMessage("apply.no-pack"));
             return 0;
         }
 
@@ -252,33 +265,21 @@ public class PackMergerCommand {
             List<Player> players = resolver.resolve(ctx.getSource());
 
             if (players.isEmpty()) {
-                sender.sendMessage(mm.deserialize("<red>No matching player found.</red>"));
+                sender.sendMessage(msg.getMessage("apply.no-match"));
                 return 0;
             }
 
             for (Player player : players) {
                 plugin.getDistributor().sendPack(player, true);
-                sender.sendMessage(mm.deserialize("<green>Force-sent resource pack to " + player.getName() + "</green>"));
+                sender.sendMessage(msg.getMessage("apply.sent-player",
+                        "player", player.getName()));
             }
         } catch (Exception e) {
-            sender.sendMessage(mm.deserialize("<red>Player not found: " + e.getMessage() + "</red>"));
+            sender.sendMessage(msg.getMessage("apply.player-error",
+                    "error", e.getMessage()));
             return 0;
         }
 
         return 1;
-    }
-
-    /**
-     * Escapes MiniMessage formatting tags in user-generated text to prevent injection.
-     *
-     * <p>Replaces {@code <} and {@code >} with their escaped equivalents so that
-     * validation messages containing angle brackets (e.g. file paths, JSON content)
-     * are displayed as literal text rather than being parsed as MiniMessage tags.</p>
-     *
-     * @param input the raw text that may contain angle brackets
-     * @return the escaped text safe for use in MiniMessage deserialization
-     */
-    private String escapeMinimessage(String input) {
-        return input.replace("<", "\\<").replace(">", "\\>");
     }
 }
