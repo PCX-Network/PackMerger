@@ -139,87 +139,11 @@ upload:
   # Which upload provider to use for serving the merged pack to players.
   #
   # Valid values:
-  #   "self-host" — built-in HTTP server (simplest, no external service needed)
-  #   "s3"        — S3-compatible storage (AWS S3, Cloudflare R2, MinIO, etc.)
-  #   "sftp"      — upload to a remote server via SFTP
   #   "polymath"  — Polymath server (public Oraxen instance or self-hosted)
+  #   "self-host" — built-in HTTP server (simplest, no external service needed)
   #
-  # Default: "self-host"
-  provider: "self-host"
-
-  # ---- S3 / Cloudflare R2 / MinIO Configuration ----
-  # Only used when provider is "s3". Supports any S3-compatible object storage.
-  s3:
-    # The S3-compatible API endpoint URL.
-    # For AWS S3: leave empty (uses default AWS endpoints based on region)
-    # For Cloudflare R2: https://<account-id>.r2.cloudflarestorage.com
-    # For MinIO: http://your-minio-host:9000
-    #
-    # Default: "" (uses default AWS endpoint)
-    endpoint: "https://your-r2-endpoint.r2.cloudflarestorage.com"
-
-    # The AWS region for the bucket.
-    # For Cloudflare R2: use "auto"
-    # For AWS S3: use the actual region (e.g. "us-east-1")
-    #
-    # Default: "auto"
-    region: "auto"
-
-    # The S3 bucket name to upload into.
-    bucket: "resource-packs"
-
-    # AWS/R2 access key ID for authentication.
-    # For R2: find this in the Cloudflare dashboard under R2 > Manage R2 API Tokens.
-    access-key: "your-access-key"
-
-    # AWS/R2 secret access key for authentication.
-    # Keep this value secret — do not share your config file publicly.
-    secret-key: "your-secret-key"
-
-    # The object key (path within the bucket) where the pack will be stored.
-    # This is the file path inside the bucket, not a filesystem path.
-    #
-    # Default: "packs/merged-pack.zip"
-    object-key: "packs/merged-pack.zip"
-
-    # The public-facing base URL that players download from.
-    # This should be the URL of your CDN or public bucket endpoint.
-    # The final download URL will be: <public-url>/<object-key>
-    #
-    # Example: if public-url is "https://cdn.example.com" and object-key is
-    # "packs/merged-pack.zip", the download URL will be:
-    # https://cdn.example.com/packs/merged-pack.zip
-    public-url: "https://cdn.example.com"
-
-  # ---- SFTP Configuration ----
-  # Only used when provider is "sftp". Uploads the pack to a remote server via SFTP.
-  sftp:
-    # The SFTP server hostname or IP address.
-    host: "files.example.com"
-
-    # The SFTP server port.
-    # Default: 22 (standard SSH/SFTP port)
-    port: 22
-
-    # Username for SFTP authentication.
-    username: "upload"
-
-    # Password for SFTP authentication. Leave empty if using private key auth.
-    # If both password and private-key-path are set, the private key is tried first.
-    password: ""
-
-    # Path to an SSH private key file for key-based authentication.
-    # Supports OpenSSH format keys. Leave empty to use password auth instead.
-    # Example: "/home/minecraft/.ssh/id_rsa"
-    private-key-path: ""
-
-    # The full remote file path where the pack will be uploaded.
-    # Parent directories are created automatically if they don't exist.
-    remote-path: "/var/www/packs/merged-pack.zip"
-
-    # The public URL where players can download the pack after upload.
-    # This should correspond to the web server serving the remote-path directory.
-    public-url: "https://files.example.com/packs/merged-pack.zip"
+  # Default: "polymath"
+  provider: "polymath"
 
   # ---- Polymath Configuration ----
   # Only used when provider is "polymath". Uploads to a Polymath server.

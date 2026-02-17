@@ -78,58 +78,8 @@ public class ConfigManager {
     /** Whether to automatically upload after every merge. */
     private boolean autoUpload;
 
-    /** The upload provider identifier: "s3", "sftp", or "self-host". */
+    /** The upload provider identifier: "polymath" or "self-host". */
     private String uploadProvider;
-
-    // -------------------------------------------------------------------------
-    // S3 / Cloudflare R2 / MinIO settings
-    // -------------------------------------------------------------------------
-
-    /** S3-compatible API endpoint URL (e.g. Cloudflare R2 or MinIO endpoint). */
-    private String s3Endpoint;
-
-    /** AWS region identifier. Use "auto" for Cloudflare R2. */
-    private String s3Region;
-
-    /** The S3 bucket name to upload into. */
-    private String s3Bucket;
-
-    /** AWS/R2 access key ID for authentication. */
-    private String s3AccessKey;
-
-    /** AWS/R2 secret access key for authentication. */
-    private String s3SecretKey;
-
-    /** The object key (path within the bucket) for the uploaded pack. */
-    private String s3ObjectKey;
-
-    /** The public-facing base URL that players use to download from (e.g. a CDN domain). */
-    private String s3PublicUrl;
-
-    // -------------------------------------------------------------------------
-    // SFTP settings
-    // -------------------------------------------------------------------------
-
-    /** SFTP server hostname. */
-    private String sftpHost;
-
-    /** SFTP server port (default 22). */
-    private int sftpPort;
-
-    /** SFTP username for authentication. */
-    private String sftpUsername;
-
-    /** SFTP password for authentication (alternative to private key). */
-    private String sftpPassword;
-
-    /** Path to an SSH private key file for key-based SFTP authentication. */
-    private String sftpPrivateKeyPath;
-
-    /** The remote file path on the SFTP server where the pack will be uploaded. */
-    private String sftpRemotePath;
-
-    /** The public URL that players use to download the pack from the SFTP-backed web server. */
-    private String sftpPublicUrl;
 
     // -------------------------------------------------------------------------
     // Self-host settings
@@ -249,25 +199,7 @@ public class ConfigManager {
 
         // Upload settings
         autoUpload = config.getBoolean("upload.auto-upload", true);
-        uploadProvider = config.getString("upload.provider", "self-host");
-
-        // S3 settings
-        s3Endpoint = config.getString("upload.s3.endpoint", "");
-        s3Region = config.getString("upload.s3.region", "auto");
-        s3Bucket = config.getString("upload.s3.bucket", "");
-        s3AccessKey = config.getString("upload.s3.access-key", "");
-        s3SecretKey = config.getString("upload.s3.secret-key", "");
-        s3ObjectKey = config.getString("upload.s3.object-key", "packs/merged-pack.zip");
-        s3PublicUrl = config.getString("upload.s3.public-url", "");
-
-        // SFTP settings
-        sftpHost = config.getString("upload.sftp.host", "");
-        sftpPort = config.getInt("upload.sftp.port", 22);
-        sftpUsername = config.getString("upload.sftp.username", "");
-        sftpPassword = config.getString("upload.sftp.password", "");
-        sftpPrivateKeyPath = config.getString("upload.sftp.private-key-path", "");
-        sftpRemotePath = config.getString("upload.sftp.remote-path", "");
-        sftpPublicUrl = config.getString("upload.sftp.public-url", "");
+        uploadProvider = config.getString("upload.provider", "polymath");
 
         // Self-host settings
         selfHostPort = config.getInt("upload.self-host.port", 8080);
@@ -366,50 +298,8 @@ public class ConfigManager {
     /** @return {@code true} if the pack should be uploaded automatically after merge */
     public boolean isAutoUpload() { return autoUpload; }
 
-    /** @return the configured upload provider name: "s3", "sftp", or "self-host" */
+    /** @return the configured upload provider name: "polymath" or "self-host" */
     public String getUploadProvider() { return uploadProvider; }
-
-    /** @return the S3-compatible API endpoint URL */
-    public String getS3Endpoint() { return s3Endpoint; }
-
-    /** @return the S3 region (e.g. "us-east-1" or "auto" for R2) */
-    public String getS3Region() { return s3Region; }
-
-    /** @return the S3 bucket name */
-    public String getS3Bucket() { return s3Bucket; }
-
-    /** @return the S3 access key ID */
-    public String getS3AccessKey() { return s3AccessKey; }
-
-    /** @return the S3 secret access key */
-    public String getS3SecretKey() { return s3SecretKey; }
-
-    /** @return the S3 object key (path within the bucket) */
-    public String getS3ObjectKey() { return s3ObjectKey; }
-
-    /** @return the public-facing base URL for S3/CDN downloads */
-    public String getS3PublicUrl() { return s3PublicUrl; }
-
-    /** @return the SFTP server hostname */
-    public String getSftpHost() { return sftpHost; }
-
-    /** @return the SFTP server port */
-    public int getSftpPort() { return sftpPort; }
-
-    /** @return the SFTP username */
-    public String getSftpUsername() { return sftpUsername; }
-
-    /** @return the SFTP password (may be empty if using key auth) */
-    public String getSftpPassword() { return sftpPassword; }
-
-    /** @return the path to the SSH private key file, or empty if using password auth */
-    public String getSftpPrivateKeyPath() { return sftpPrivateKeyPath; }
-
-    /** @return the remote file path on the SFTP server */
-    public String getSftpRemotePath() { return sftpRemotePath; }
-
-    /** @return the public download URL for the SFTP-hosted pack */
-    public String getSftpPublicUrl() { return sftpPublicUrl; }
 
     /** @return the port for the built-in HTTP server */
     public int getSelfHostPort() { return selfHostPort; }

@@ -6,7 +6,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 
 - **Priority-based merging** — control which pack's files take precedence when packs overlap
 - **Intelligent JSON merging** — deep merges model and blockstate JSON to preserve non-conflicting entries; concatenates sounds.json arrays so sounds from multiple packs coexist
-- **Multiple upload providers** — built-in HTTP server, S3-compatible storage (AWS S3, Cloudflare R2, MinIO), SFTP, or Polymath
+- **Multiple upload providers** — Polymath server or built-in HTTP server
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
@@ -103,59 +103,8 @@ merge:
 ```yaml
 upload:
   auto-upload: true              # Upload after every merge
-  provider: "self-host"          # "self-host", "s3", "sftp", or "polymath"
+  provider: "polymath"           # "polymath" or "self-host"
 ```
-
-#### S3 / Cloudflare R2 Setup
-
-```yaml
-upload:
-  provider: "s3"
-  s3:
-    endpoint: "https://<account-id>.r2.cloudflarestorage.com"
-    region: "auto"                     # Use "auto" for R2
-    bucket: "resource-packs"
-    access-key: "your-access-key"
-    secret-key: "your-secret-key"
-    object-key: "packs/merged-pack.zip"
-    public-url: "https://cdn.example.com"
-```
-
-The final download URL will be `<public-url>/<object-key>` (e.g. `https://cdn.example.com/packs/merged-pack.zip`).
-
-For **AWS S3**, leave `endpoint` empty and set `region` to your bucket's region.
-
-For **MinIO**, set `endpoint` to your MinIO server URL (e.g. `http://minio.local:9000`).
-
-#### SFTP Setup
-
-```yaml
-upload:
-  provider: "sftp"
-  sftp:
-    host: "files.example.com"
-    port: 22
-    username: "upload"
-    password: ""                              # Or use private-key-path below
-    private-key-path: "/home/mc/.ssh/id_rsa"  # Leave empty for password auth
-    remote-path: "/var/www/packs/merged-pack.zip"
-    public-url: "https://files.example.com/packs/merged-pack.zip"
-```
-
-The SFTP provider creates remote directories automatically if they don't exist.
-
-#### Self-Hosted Setup
-
-```yaml
-upload:
-  provider: "self-host"
-  self-host:
-    port: 8080
-    public-url: ""     # Auto-detects from server.properties; set explicitly if behind NAT/proxy
-    rate-limit: 50     # Max concurrent downloads (0 = unlimited)
-```
-
-The self-host provider starts a built-in HTTP server. Players download from `http://<your-ip>:<port>/pack`. Make sure the port is open in your firewall.
 
 #### Polymath Setup
 
@@ -184,6 +133,19 @@ upload:
 ```
 
 To self-host Polymath, you need Python installed. See the [Polymath GitHub repo](https://github.com/oraxen/polymath) for setup instructions.
+
+#### Self-Hosted Setup
+
+```yaml
+upload:
+  provider: "self-host"
+  self-host:
+    port: 8080
+    public-url: ""     # Auto-detects from server.properties; set explicitly if behind NAT/proxy
+    rate-limit: 50     # Max concurrent downloads (0 = unlimited)
+```
+
+The self-host provider starts a built-in HTTP server. Players download from `http://<your-ip>:<port>/pack`. Make sure the port is open in your firewall.
 
 ### Distribution
 
@@ -240,7 +202,7 @@ All commands require `packmerger.admin` permission (default: op).
    - **sounds.json** (`assets/<ns>/sounds.json`) sound arrays are concatenated so sounds from all packs coexist
 4. **Override** — if `pack.mcmeta` or `pack.png` exists directly in the packs folder (not inside a pack), it replaces whatever the merge produced
 5. **Validate** — the merged zip is checked for pack.mcmeta structure, JSON syntax errors, and missing texture/model references
-6. **Upload** — the merged zip is sent to the configured provider (self-host, S3, SFTP, or Polymath)
+6. **Upload** — the merged zip is sent to the configured provider (Polymath or self-host)
 7. **Distribute** — if the pack's SHA-1 hash changed, online players are handled according to the `on-new-pack` action
 
 ### Priority Order & Conflict Resolution
@@ -278,14 +240,6 @@ After a player successfully loads a resource pack, the plugin records the pack's
 - Change `upload.self-host.port` to an unused port
 - Check with `netstat -tlnp | grep 8080` (Linux) or `netstat -an | findstr 8080` (Windows) to find the conflicting process
 
-### S3 upload permission errors
-
-- Verify your access key and secret key are correct
-- For Cloudflare R2: ensure the API token has `Object Read & Write` permissions on the bucket
-- For AWS S3: ensure the IAM user/role has `s3:PutObject` permission on the target bucket
-- Check that the `endpoint` URL is correct (no trailing slash, includes `https://`)
-- For R2, set `region` to `"auto"`
-
 ### Pack validation warnings
 
 - **"Invalid JSON"** — a JSON file has syntax errors. Open it in a JSON validator to find the issue
@@ -313,7 +267,7 @@ After a player successfully loads a resource pack, the plugin records the pack's
 - Check the output file size with `/pm status`
 - Increase `merge.optimization.compression-level` (up to 9) for smaller files
 - Remove unnecessary packs or textures from the packs folder
-- For very large packs (200+ MB), consider using S3/R2 with a CDN for faster downloads
+- For very large packs (200+ MB), consider using a CDN or Polymath for faster downloads
 
 ## License
 

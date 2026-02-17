@@ -11,8 +11,6 @@ import sh.pcx.packmerger.merge.FileWatcher;
 import sh.pcx.packmerger.merge.PackMergeEngine;
 import sh.pcx.packmerger.merge.PackValidator;
 import sh.pcx.packmerger.upload.PolymathUploadProvider;
-import sh.pcx.packmerger.upload.S3UploadProvider;
-import sh.pcx.packmerger.upload.SFTPUploadProvider;
 import sh.pcx.packmerger.upload.SelfHostProvider;
 import sh.pcx.packmerger.upload.UploadProvider;
 
@@ -55,7 +53,7 @@ public class PackMerger extends JavaPlugin {
     /** Watches the packs folder for file changes to trigger hot-reload merges. */
     private FileWatcher fileWatcher;
 
-    /** The active upload provider (S3, SFTP, self-host, or Polymath) used to serve the merged pack. */
+    /** The active upload provider (Polymath or self-host) used to serve the merged pack. */
     private UploadProvider uploadProvider;
 
     /** Handles sending the resource pack to individual players or all online players. */
@@ -153,10 +151,8 @@ public class PackMerger extends JavaPlugin {
      * a console warning.</p>
      *
      * @see UploadProvider
-     * @see S3UploadProvider
-     * @see SFTPUploadProvider
-     * @see SelfHostProvider
      * @see PolymathUploadProvider
+     * @see SelfHostProvider
      */
     public void initUploadProvider() {
         // Stop existing self-host HTTP server if we're switching providers
@@ -166,8 +162,6 @@ public class PackMerger extends JavaPlugin {
 
         String provider = configManager.getUploadProvider();
         uploadProvider = switch (provider.toLowerCase()) {
-            case "s3" -> new S3UploadProvider(this);
-            case "sftp" -> new SFTPUploadProvider(this);
             case "polymath" -> new PolymathUploadProvider(this);
             case "self-host" -> {
                 SelfHostProvider selfHost = new SelfHostProvider(this);
