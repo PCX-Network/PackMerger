@@ -199,7 +199,7 @@ public class ConfigManager {
 
         // Upload settings
         autoUpload = config.getBoolean("upload.auto-upload", true);
-        uploadProvider = config.getString("upload.provider", "polymath");
+        uploadProvider = config.getString("upload.provider", "self-host");
 
         // Self-host settings
         selfHostPort = config.getInt("upload.self-host.port", 8080);
@@ -207,8 +207,8 @@ public class ConfigManager {
         selfHostRateLimit = config.getInt("upload.self-host.rate-limit", 50);
 
         // Polymath settings
-        polymathServer = config.getString("upload.polymath.server", "http://atlas.oraxen.com");
-        polymathSecret = config.getString("upload.polymath.secret", "oraxen");
+        polymathServer = config.getString("upload.polymath.server", "");
+        polymathSecret = config.getString("upload.polymath.secret", "");
         polymathId = config.getString("upload.polymath.id", "");
 
         // Distribution settings

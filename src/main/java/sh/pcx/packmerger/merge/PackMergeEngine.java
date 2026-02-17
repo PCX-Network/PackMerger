@@ -277,13 +277,15 @@ public class PackMergeEngine {
         }
 
         // Second pass: add packs that exist on disk but aren't in any config list
-        // These get lowest priority and a console warning so the operator knows
+        // These are sorted by filename (so numeric prefixes like 01_, 02_ are respected)
+        List<String> unlisted = new ArrayList<>();
         for (String pack : available) {
-            if (!priority.contains(pack) && !additional.contains(pack)) {
-                plugin.getLogger().warning("Pack '" + pack + "' found but not listed in priority config — merging at lowest priority");
-                ordered.add(pack);
+            if (!priority.contains(pack) && !additional.contains(pack) && !excluded.contains(pack)) {
+                unlisted.add(pack);
             }
         }
+        Collections.sort(unlisted);
+        ordered.addAll(unlisted);
 
         // Third pass: add server-specific additional packs at lowest priority (below global)
         for (String pack : additional) {

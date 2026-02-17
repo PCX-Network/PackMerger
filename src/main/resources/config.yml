@@ -139,31 +139,31 @@ upload:
   # Which upload provider to use for serving the merged pack to players.
   #
   # Valid values:
-  #   "polymath"  — Polymath server (public Oraxen instance or self-hosted)
+  #   "polymath"  — self-hosted Polymath server instance
   #   "self-host" — built-in HTTP server (simplest, no external service needed)
   #
-  # Default: "polymath"
-  provider: "polymath"
+  # Default: "self-host"
+  provider: "self-host"
 
   # ---- Polymath Configuration ----
   # Only used when provider is "polymath". Uploads to a Polymath server.
   # Polymath is a lightweight Python web server for hosting resource packs.
   # GitHub: https://github.com/oraxen/polymath
+  #
+  # NOTE: The public Oraxen instance (atlas.oraxen.com) has been shut down.
+  # You must self-host your own Polymath instance to use this provider.
   polymath:
     # Polymath server URL (no trailing slash).
-    # Public Oraxen instance: http://atlas.oraxen.com
-    # Or your own self-hosted Polymath instance (e.g. http://localhost:5000)
+    # Example: http://localhost:5000
     #
-    # Default: "http://atlas.oraxen.com"
-    server: "http://atlas.oraxen.com"
+    # Default: ""
+    server: ""
 
     # Shared secret for upload authentication.
     # Must match the secret configured on the Polymath server.
-    # The public Oraxen instance uses "oraxen" as the default secret.
-    # Change this if you host your own Polymath instance.
     #
-    # Default: "oraxen"
-    secret: "oraxen"
+    # Default: ""
+    secret: ""
 
     # Unique ID for this server's pack (used to overwrite previous uploads).
     # Each upload with the same ID replaces the previous pack for that ID.

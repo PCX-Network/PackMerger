@@ -67,9 +67,20 @@ public class PolymathUploadProvider implements UploadProvider {
         String secret = config.getPolymathSecret();
         String id = config.getPolymathId();
 
+        if (serverUrl == null || serverUrl.isEmpty()) {
+            throw new RuntimeException(
+                    "Polymath server URL is not configured. Set 'upload.polymath.server' in config.yml "
+                    + "to your Polymath instance URL, or switch to provider: \"self-host\".");
+        }
+
         // Default the ID to the server name if not explicitly configured
         if (id == null || id.isEmpty()) {
             id = config.getServerName();
+        }
+
+        // Prepend https:// if no protocol was specified
+        if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+            serverUrl = "https://" + serverUrl;
         }
 
         // Strip trailing slash from server URL for consistent URL construction

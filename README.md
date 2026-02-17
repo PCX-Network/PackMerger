@@ -24,7 +24,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 ## Installation
 
 1. Build the plugin (see [Building](#building)) or download the release jar
-2. Place `PackMerger-1.0.0.jar` into your server's `plugins/` folder
+2. Place `PackMerger-1.0.1.jar` into your server's `plugins/` folder
 3. Start the server — the plugin generates `config.yml` and creates the `packs/`, `output/`, and `cache/` directories under `plugins/PackMerger/`
 4. Place your resource pack `.zip` files or unzipped pack folders into `plugins/PackMerger/packs/`
 5. Edit `plugins/PackMerger/config.yml` to configure priority order, upload provider, and distribution settings
@@ -39,7 +39,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 The shaded jar (with all dependencies bundled) is output to:
 
 ```
-build/libs/PackMerger-1.0.0.jar
+build/libs/PackMerger-1.0.1.jar
 ```
 
 Requires Java 21 to compile.
@@ -65,7 +65,7 @@ priority:
   - "custom-models.zip"
 ```
 
-Controls merge order. The first entry has the **highest priority** — its files win when two packs contain the same non-mergeable file (e.g. textures). Packs found on disk but not listed here are merged at the lowest priority with a console warning.
+Controls merge order. The first entry has the **highest priority** — its files win when two packs contain the same non-mergeable file (e.g. textures). Packs found on disk but not listed here are automatically merged at the lowest priority, sorted alphabetically by filename. Use numeric prefixes (e.g. `01_pack.zip`, `02_pack.zip`) to control their order without needing to list them in the config.
 
 ### Per-Server Packs
 
@@ -103,38 +103,10 @@ merge:
 ```yaml
 upload:
   auto-upload: true              # Upload after every merge
-  provider: "polymath"           # "polymath" or "self-host"
+  provider: "self-host"          # "self-host" or "polymath"
 ```
 
-#### Polymath Setup
-
-[Polymath](https://github.com/oraxen/polymath) is a lightweight Python web server originally created by Oraxen/Nexo for hosting Minecraft resource packs. You can use the public Oraxen instance or self-host your own.
-
-**Using the public Oraxen instance:**
-
-```yaml
-upload:
-  provider: "polymath"
-  polymath:
-    server: "http://atlas.oraxen.com"
-    secret: "oraxen"
-    id: ""           # Uses server name from config or server.properties
-```
-
-**Using a self-hosted Polymath instance:**
-
-```yaml
-upload:
-  provider: "polymath"
-  polymath:
-    server: "http://your-polymath-host:5000"
-    secret: "your-custom-secret"
-    id: "my-server"
-```
-
-To self-host Polymath, you need Python installed. See the [Polymath GitHub repo](https://github.com/oraxen/polymath) for setup instructions.
-
-#### Self-Hosted Setup
+#### Self-Host (Default)
 
 ```yaml
 upload:
@@ -146,6 +118,21 @@ upload:
 ```
 
 The self-host provider starts a built-in HTTP server. Players download from `http://<your-ip>:<port>/pack`. Make sure the port is open in your firewall.
+
+#### Polymath (Self-Hosted)
+
+[Polymath](https://github.com/oraxen/polymath) is a lightweight Python web server originally created by the Oraxen/Nexo project for hosting Minecraft resource packs. You must self-host your own Polymath instance — the public Oraxen instance (`atlas.oraxen.com`) has been shut down.
+
+```yaml
+upload:
+  provider: "polymath"
+  polymath:
+    server: "https://your-polymath-host:5000"
+    secret: "your-custom-secret"
+    id: "my-server"
+```
+
+To self-host Polymath, you need Python installed. See the [Polymath GitHub repo](https://github.com/oraxen/polymath) for setup instructions.
 
 ### Distribution
 
