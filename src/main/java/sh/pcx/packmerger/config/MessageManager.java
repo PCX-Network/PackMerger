@@ -28,8 +28,10 @@ public class MessageManager {
      * Saves the default {@code messages_en.yml} if it doesn't exist, then loads it.
      */
     public void load() {
-        plugin.saveResource("messages_en.yml", false);
         File file = new File(plugin.getDataFolder(), "messages_en.yml");
+        if (!file.exists()) {
+            plugin.saveResource("messages_en.yml", false);
+        }
         messages = YamlConfiguration.loadConfiguration(file);
     }
 
