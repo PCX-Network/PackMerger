@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
+import sh.pcx.packmerger.PluginLogger;
 
 /**
  * Monitors the packs folder for file system changes and triggers automatic re-merges
@@ -30,6 +30,9 @@ public class FileWatcher {
     /** Reference to the owning plugin for triggering merges and reading config. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /** The dedicated watch thread, or {@code null} if not running. */
     private Thread watchThread;
 
@@ -46,6 +49,7 @@ public class FileWatcher {
      */
     public FileWatcher(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -75,7 +79,7 @@ public class FileWatcher {
                         StandardWatchEventKinds.ENTRY_MODIFY,
                         StandardWatchEventKinds.ENTRY_DELETE);
 
-                plugin.getLogger().info("File watcher started for: " + packsPath);
+                logger.info("File watcher started for: " + packsPath);
 
                 // Debounce state: tracks the timestamp of the last relevant file event.
                 // When this is non-zero and the debounce period elapses, a merge is triggered.
@@ -120,9 +124,7 @@ public class FileWatcher {
                         if (fileName.equals("pack.mcmeta") || fileName.equals("pack.png") ||
                                 fileName.endsWith(".zip") || !fileName.contains(".")) {
                             hasRelevantEvent = true;
-                            if (plugin.getConfigManager().isDebug()) {
-                                plugin.getLogger().info("File change detected: " + kind.name() + " " + fileName);
-                            }
+                            logger.debug("File change detected: " + kind.name() + " " + fileName);
                         }
                     }
 
@@ -130,7 +132,7 @@ public class FileWatcher {
                         // Reset the debounce timer — we'll wait for the full debounce period
                         // from this point before triggering
                         lastEventTime.set(System.currentTimeMillis());
-                        plugin.getLogger().info("Pack file change detected, waiting " +
+                        logger.info("Pack file change detected, waiting " +
                                 plugin.getConfigManager().getHotReloadDebounceSeconds() + "s before merging...");
                     }
 
@@ -138,14 +140,14 @@ public class FileWatcher {
                     boolean valid = key.reset();
                     if (!valid) {
                         // The watched directory was deleted or became inaccessible
-                        plugin.getLogger().warning("File watcher key invalidated, stopping watcher");
+                        logger.warning("File watcher key invalidated, stopping watcher");
                         break;
                     }
                 }
             } catch (ClosedWatchServiceException e) {
                 // Expected during shutdown — stop() closes the watch service
             } catch (IOException e) {
-                plugin.getLogger().log(Level.SEVERE, "File watcher error", e);
+                logger.error("File watcher error", e);
             }
         }, "PackMerger-FileWatcher");
 
@@ -174,7 +176,7 @@ public class FileWatcher {
             watchThread.interrupt();
             watchThread = null;
         }
-        plugin.getLogger().info("File watcher stopped");
+        logger.info("File watcher stopped");
     }
 
     /**
@@ -183,7 +185,7 @@ public class FileWatcher {
      * (automated merge, no in-game feedback).
      */
     private void triggerMerge() {
-        plugin.getLogger().info("Debounce complete, triggering auto-merge...");
+        logger.info("Debounce complete, triggering auto-merge...");
         // null sender = no in-game messages (this is an automated merge)
         plugin.mergeAndUpload(null);
     }

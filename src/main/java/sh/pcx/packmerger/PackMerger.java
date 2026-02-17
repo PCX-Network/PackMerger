@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 
 /**
  * Main plugin class for PackMerger — a Paper plugin that merges multiple Minecraft resource
@@ -43,6 +42,9 @@ public class PackMerger extends JavaPlugin {
 
     /** Manages loading and access to all plugin configuration values. */
     private ConfigManager configManager;
+
+    /** Console logger with colored category tags and configurable log levels. */
+    private PluginLogger logger;
 
     /** Performs the actual merge of resource packs from the packs folder. */
     private PackMergeEngine mergeEngine;
@@ -86,6 +88,9 @@ public class PackMerger extends JavaPlugin {
         configManager = new ConfigManager(this);
         configManager.load();
 
+        // Initialize the colored console logger after config is loaded
+        logger = new PluginLogger(this, configManager.getLogLevel());
+
         // Ensure the plugin's working directories exist before any component tries to use them
         getPacksFolder().mkdirs();
         getOutputFolder().mkdirs();
@@ -111,7 +116,7 @@ public class PackMerger extends JavaPlugin {
         // to prevent data loss on unclean shutdowns
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> cacheManager.save(), 6000L, 6000L);
 
-        getLogger().info("PackMerger enabled!");
+        logger.info("PackMerger enabled!");
 
         // Kick off the initial merge if configured to do so
         if (configManager.isAutoMergeOnStartup()) {
@@ -140,7 +145,7 @@ public class PackMerger extends JavaPlugin {
         // Cancel any remaining scheduled tasks (cache save timer, pending join delays, etc.)
         Bukkit.getScheduler().cancelTasks(this);
 
-        getLogger().info("PackMerger disabled!");
+        logger.info("PackMerger disabled!");
     }
 
     /**
@@ -169,7 +174,7 @@ public class PackMerger extends JavaPlugin {
                 yield selfHost;
             }
             default -> {
-                getLogger().warning("Unknown upload provider: " + provider + ", defaulting to self-host");
+                logger.warning("Unknown upload provider: " + provider + ", defaulting to self-host");
                 SelfHostProvider selfHost = new SelfHostProvider(this);
                 selfHost.start();
                 yield selfHost;
@@ -243,14 +248,14 @@ public class PackMerger extends JavaPlugin {
                 currentPackHash = hash;
                 currentPackHashHex = hashHex;
 
-                getLogger().info("Merged pack SHA1: " + hashHex);
+                logger.info("Merged pack SHA1: " + hashHex);
 
                 // Step 4: Upload the merged pack if auto-upload is enabled
                 if (configManager.isAutoUpload()) {
                     try {
                         String url = uploadProvider.upload(outputFile, hashHex);
                         currentPackUrl = url;
-                        getLogger().info("Pack uploaded successfully: " + url);
+                        logger.upload("Pack uploaded successfully: " + url);
 
                         if (sender != null) {
                             // Return to main thread for player messaging
@@ -265,7 +270,7 @@ public class PackMerger extends JavaPlugin {
                             Bukkit.getScheduler().runTask(this, () -> distributor.onNewPack());
                         }
                     } catch (Exception e) {
-                        getLogger().log(Level.SEVERE, "Upload failed", e);
+                        logger.error("Upload failed", e);
                         if (sender != null) {
                             Bukkit.getScheduler().runTask(this, () ->
                                     sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
@@ -280,7 +285,7 @@ public class PackMerger extends JavaPlugin {
                     }
                 }
             } catch (Exception e) {
-                getLogger().log(Level.SEVERE, "Merge failed", e);
+                logger.error("Merge failed", e);
                 if (sender != null) {
                     Bukkit.getScheduler().runTask(this, () ->
                             sender.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
@@ -330,6 +335,7 @@ public class PackMerger extends JavaPlugin {
      */
     public void reload() {
         configManager.load();
+        logger.setLevel(configManager.getLogLevel());
         initUploadProvider();
         stopFileWatcher();
         startFileWatcher();
@@ -428,6 +434,9 @@ public class PackMerger extends JavaPlugin {
 
     /** @return the plugin's configuration manager */
     public ConfigManager getConfigManager() { return configManager; }
+
+    /** @return the plugin's colored console logger */
+    public PluginLogger getPluginLogger() { return logger; }
 
     /** @return the merge engine responsible for combining resource packs */
     public PackMergeEngine getMergeEngine() { return mergeEngine; }

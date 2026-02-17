@@ -1,6 +1,7 @@
 package sh.pcx.packmerger.upload;
 
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 
 import java.io.ByteArrayOutputStream;
@@ -37,6 +38,9 @@ public class PolymathUploadProvider implements UploadProvider {
     /** Reference to the owning plugin for config access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /**
      * Creates a new Polymath upload provider.
      *
@@ -44,6 +48,7 @@ public class PolymathUploadProvider implements UploadProvider {
      */
     public PolymathUploadProvider(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -141,7 +146,7 @@ public class PolymathUploadProvider implements UploadProvider {
             downloadUrl = serverUrl + downloadUrl;
         }
 
-        plugin.getLogger().info("Successfully uploaded to Polymath: " + downloadUrl);
+        logger.upload("Successfully uploaded to Polymath: " + downloadUrl);
         return downloadUrl;
     }
 

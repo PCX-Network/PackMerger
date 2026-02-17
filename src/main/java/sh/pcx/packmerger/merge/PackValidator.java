@@ -9,6 +9,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 
 /**
  * Validates a merged resource pack zip for structural correctness and missing references.
@@ -40,6 +41,9 @@ public class PackValidator {
     /** Reference to the owning plugin for config access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /**
      * Creates a new pack validator.
      *
@@ -47,6 +51,7 @@ public class PackValidator {
      */
     public PackValidator(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -74,7 +79,7 @@ public class PackValidator {
         List<String> messages = new ArrayList<>();
 
         if (!packFile.exists()) {
-            plugin.getLogger().severe("Validation: Merged pack file does not exist!");
+            logger.error("Validation: Merged pack file does not exist!");
             return new ValidationResult(0, 1, List.of("Merged pack file does not exist"));
         }
 
@@ -94,7 +99,7 @@ public class PackValidator {
                 errors++;
                 String msg = "ERROR: pack.mcmeta is missing from merged pack";
                 messages.add(msg);
-                plugin.getLogger().severe("Validation: " + msg);
+                logger.error("Validation: " + msg);
             } else {
                 ZipEntry mcmetaEntry = zf.getEntry("pack.mcmeta");
                 try (InputStream is = zf.getInputStream(mcmetaEntry)) {
@@ -105,13 +110,13 @@ public class PackValidator {
                         errors++;
                         String msg = "ERROR: pack.mcmeta is missing 'pack.pack_format' field";
                         messages.add(msg);
-                        plugin.getLogger().severe("Validation: " + msg);
+                        logger.error("Validation: " + msg);
                     }
                 } catch (JsonSyntaxException e) {
                     errors++;
                     String msg = "ERROR: pack.mcmeta contains invalid JSON";
                     messages.add(msg);
-                    plugin.getLogger().severe("Validation: " + msg);
+                    logger.error("Validation: " + msg);
                 }
             }
 
@@ -131,7 +136,7 @@ public class PackValidator {
                         warnings++;
                         String msg = "WARNING: Invalid JSON: " + path + " — " + e.getMessage();
                         messages.add(msg);
-                        plugin.getLogger().warning("Validation: " + msg);
+                        logger.warning("Validation: " + msg);
                     }
                 }
             }
@@ -163,9 +168,7 @@ public class PackValidator {
                                     warnings++;
                                     String msg = "WARNING: Model " + entry.getName() + " references missing texture: " + ref;
                                     messages.add(msg);
-                                    if (plugin.getConfigManager().isDebug()) {
-                                        plugin.getLogger().warning("Validation: " + msg);
-                                    }
+                                    logger.debug("Validation: " + msg);
                                 }
                             }
                         }
@@ -192,13 +195,13 @@ public class PackValidator {
             errors++;
             String msg = "ERROR: Could not open merged pack for validation: " + e.getMessage();
             messages.add(msg);
-            plugin.getLogger().severe("Validation: " + msg);
+            logger.error("Validation: " + msg);
         }
 
         // Recount warnings from messages since checkBlockstateModels adds directly to the list
         warnings = (int) messages.stream().filter(m -> m.startsWith("WARNING:")).count();
 
-        plugin.getLogger().info("Validation complete: " + warnings + " warnings, " + errors + " errors");
+        logger.info("Validation complete: " + warnings + " warnings, " + errors + " errors");
         return new ValidationResult(warnings, errors, messages);
     }
 
@@ -312,9 +315,7 @@ public class PackValidator {
                 if (!modelExists(allPaths, modelRef)) {
                     String msg = "WARNING: Blockstate " + fileName + " references missing model: " + modelRef;
                     messages.add(msg);
-                    if (plugin.getConfigManager().isDebug()) {
-                        plugin.getLogger().warning("Validation: " + msg);
-                    }
+                    logger.debug("Validation: " + msg);
                 }
             }
         } else if (element.isJsonArray()) {

@@ -9,6 +9,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.scheduler.BukkitTask;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 
 import java.util.Map;
 import java.util.UUID;
@@ -35,6 +36,9 @@ public class PlayerJoinListener implements Listener {
     /** Reference to the owning plugin for component access and config. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /**
      * Tracks pending pack-send tasks for players who have joined but haven't been
      * sent the pack yet (waiting for the join delay). Mapped by player UUID so
@@ -49,6 +53,7 @@ public class PlayerJoinListener implements Listener {
      */
     public PlayerJoinListener(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -98,9 +103,7 @@ public class PlayerJoinListener implements Listener {
 
         switch (status) {
             case SUCCESSFULLY_LOADED -> {
-                if (plugin.getConfigManager().isDebug()) {
-                    plugin.getLogger().info(player.getName() + " successfully loaded the resource pack");
-                }
+                logger.debug(player.getName() + " successfully loaded the resource pack");
                 // Update the player cache with the current pack hash so they skip
                 // the download on next join
                 String currentHash = plugin.getCurrentPackHashHex();
@@ -108,30 +111,12 @@ public class PlayerJoinListener implements Listener {
                     plugin.getCacheManager().updateCache(player.getUniqueId(), currentHash);
                 }
             }
-            case DECLINED -> {
-                plugin.getLogger().info(player.getName() + " declined the resource pack");
-            }
-            case FAILED_DOWNLOAD -> {
-                plugin.getLogger().warning(player.getName() + " failed to download the resource pack");
-            }
-            case FAILED_RELOAD -> {
-                plugin.getLogger().warning(player.getName() + " failed to reload the resource pack");
-            }
-            case ACCEPTED -> {
-                if (plugin.getConfigManager().isDebug()) {
-                    plugin.getLogger().info(player.getName() + " accepted the resource pack");
-                }
-            }
-            case DOWNLOADED -> {
-                if (plugin.getConfigManager().isDebug()) {
-                    plugin.getLogger().info(player.getName() + " downloaded the resource pack");
-                }
-            }
-            default -> {
-                if (plugin.getConfigManager().isDebug()) {
-                    plugin.getLogger().info(player.getName() + " resource pack status: " + status);
-                }
-            }
+            case DECLINED -> logger.info(player.getName() + " declined the resource pack");
+            case FAILED_DOWNLOAD -> logger.warning(player.getName() + " failed to download the resource pack");
+            case FAILED_RELOAD -> logger.warning(player.getName() + " failed to reload the resource pack");
+            case ACCEPTED -> logger.debug(player.getName() + " accepted the resource pack");
+            case DOWNLOADED -> logger.debug(player.getName() + " downloaded the resource pack");
+            default -> logger.debug(player.getName() + " resource pack status: " + status);
         }
     }
 

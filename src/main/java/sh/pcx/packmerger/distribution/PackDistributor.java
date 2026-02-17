@@ -6,6 +6,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 
 import java.net.URI;
@@ -34,6 +35,9 @@ public class PackDistributor {
     /** Reference to the owning plugin for state access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /** Shared MiniMessage instance for parsing MiniMessage-formatted text. */
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
@@ -44,6 +48,7 @@ public class PackDistributor {
      */
     public PackDistributor(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -79,17 +84,13 @@ public class PackDistributor {
         String hashHex = plugin.getCurrentPackHashHex();
 
         if (url == null || hash == null) {
-            if (config.isDebug()) {
-                plugin.getLogger().info("Skipping pack send for " + player.getName() + " — no merged pack available yet");
-            }
+            logger.debug("Skipping pack send for " + player.getName() + " — no merged pack available yet");
             return;
         }
 
         // Check if the player already has the current pack (skip redundant downloads)
         if (!bypassCache && plugin.getCacheManager().hasCurrentPack(player.getUniqueId())) {
-            if (config.isDebug()) {
-                plugin.getLogger().info("Skipping pack send for " + player.getName() + " — already has current pack");
-            }
+            logger.debug("Skipping pack send for " + player.getName() + " — already has current pack");
             return;
         }
 
@@ -129,11 +130,9 @@ public class PackDistributor {
                 player.sendResourcePacks(requestBuilder.build());
             }
 
-            if (config.isDebug()) {
-                plugin.getLogger().info("Sent resource pack to " + player.getName() + " (URL: " + url + ")");
-            }
+            logger.debug("Sent resource pack to " + player.getName() + " (URL: " + url + ")");
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to send resource pack to " + player.getName() + ": " + e.getMessage());
+            logger.warning("Failed to send resource pack to " + player.getName() + ": " + e.getMessage());
         }
     }
 
@@ -168,7 +167,7 @@ public class PackDistributor {
 
         switch (action.toLowerCase()) {
             case "resend" -> {
-                plugin.getLogger().info("New pack detected, resending to all online players");
+                logger.info("New pack detected, resending to all online players");
                 sendToAll(true);
             }
             case "notify" -> {
@@ -181,15 +180,11 @@ public class PackDistributor {
                             player.sendMessage(component);
                         }
                     }
-                    plugin.getLogger().info("Notified online players about new resource pack");
+                    logger.info("Notified online players about new resource pack");
                 }
             }
-            case "none" -> {
-                if (config.isDebug()) {
-                    plugin.getLogger().info("New pack detected, but on-new-pack action is 'none'");
-                }
-            }
-            default -> plugin.getLogger().warning("Unknown on-new-pack action: " + action);
+            case "none" -> logger.debug("New pack detected, but on-new-pack action is 'none'");
+            default -> logger.warning("Unknown on-new-pack action: " + action);
         }
     }
 }

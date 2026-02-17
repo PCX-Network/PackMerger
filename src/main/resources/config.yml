@@ -287,14 +287,17 @@ distribution:
     notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
 
 # =============================================================================
-# Debug
+# Logging
 # =============================================================================
 
-# Enable verbose debug logging. When true, the plugin logs detailed information
-# about every step: file changes detected, individual files merged, pack sends
-# to specific players, validation details, etc. Useful for troubleshooting but
-# very noisy for production use.
+# Minimum log level. Controls how verbose console output is.
+# Messages at this level and above are shown; messages below are hidden.
 #
-# Valid values: true, false
-# Default: false
-debug: false
+# Valid values:
+#   "debug"   — show everything (verbose, useful for troubleshooting)
+#   "info"    — normal operation (default)
+#   "warning" — only warnings and errors
+#   "error"   — only errors
+#
+# Default: "info"
+log-level: "info"

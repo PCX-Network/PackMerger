@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
-import java.util.logging.Level;
+import sh.pcx.packmerger.PluginLogger;
 
 /**
  * Core merge engine that combines multiple Minecraft resource packs into a single output zip.
@@ -47,6 +47,9 @@ public class PackMergeEngine {
     /** Reference to the owning plugin for config access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /**
      * Filenames (lowercase) considered junk/OS metadata that should be stripped
      * from the merged pack when the strip-junk-files option is enabled.
@@ -70,6 +73,7 @@ public class PackMergeEngine {
      */
     public PackMergeEngine(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -97,16 +101,16 @@ public class PackMergeEngine {
         // Step 1: Discover available packs (zips and directories with assets/ or pack.mcmeta)
         List<String> availablePacks = discoverPacks(packsFolder);
         if (availablePacks.isEmpty()) {
-            plugin.getLogger().warning("No resource packs found in " + packsFolder.getAbsolutePath());
+            logger.warning("No resource packs found in " + packsFolder.getAbsolutePath());
             return null;
         }
 
-        plugin.getLogger().info("Discovered " + availablePacks.size() + " pack(s): " + availablePacks);
+        logger.merge("Discovered " + availablePacks.size() + " pack(s): " + availablePacks);
 
         // Step 2: Build ordered pack list based on priority config and per-server settings
         List<String> orderedPacks = buildPackOrder(availablePacks, config);
 
-        plugin.getLogger().info("Merge order (highest priority first): " + orderedPacks);
+        logger.merge("Merge order (highest priority first): " + orderedPacks);
 
         // Check for custom pack.mcmeta and pack.png overrides placed directly in the packs folder
         File customMcmeta = new File(packsFolder, "pack.mcmeta");
@@ -126,21 +130,21 @@ public class PackMergeEngine {
             File packFile = new File(packsFolder, packName);
 
             if (!packFile.exists()) {
-                plugin.getLogger().warning("Pack not found: " + packName + " (skipping)");
+                logger.warning("Pack not found: " + packName + " (skipping)");
                 continue;
             }
 
             try {
+                int filesBefore = mergedFiles.size() + mergedJson.size();
                 if (packFile.isDirectory()) {
                     mergeDirectory(packFile, packFile.toPath(), mergedFiles, mergedJson, config.isStripJunkFiles());
                 } else if (packName.endsWith(".zip")) {
                     mergeZip(packFile, mergedFiles, mergedJson, config.isStripJunkFiles());
                 }
-                if (config.isDebug()) {
-                    plugin.getLogger().info("Merged pack: " + packName);
-                }
+                int filesAdded = (mergedFiles.size() + mergedJson.size()) - filesBefore;
+                logger.merge("Merged pack: " + packName + " (" + filesAdded + " new files)");
             } catch (Exception e) {
-                plugin.getLogger().log(Level.WARNING, "Failed to read pack: " + packName + " (skipping)", e);
+                logger.warning("Failed to read pack: " + packName + " (skipping)", e);
             }
         }
 
@@ -151,18 +155,18 @@ public class PackMergeEngine {
 
         // Step 5: Apply custom overrides — these take precedence over everything
         if (customMcmeta.exists() && customMcmeta.isFile()) {
-            plugin.getLogger().info("Using custom pack.mcmeta from packs folder");
+            logger.merge("Using custom pack.mcmeta from packs folder");
             mergedFiles.put("pack.mcmeta", Files.readAllBytes(customMcmeta.toPath()));
         }
 
         if (customIcon.exists() && customIcon.isFile()) {
-            plugin.getLogger().info("Using custom pack.png from packs folder");
+            logger.merge("Using custom pack.png from packs folder");
             mergedFiles.put("pack.png", Files.readAllBytes(customIcon.toPath()));
         }
 
         // Step 6: Ensure a pack.mcmeta exists — Minecraft requires it for valid resource packs
         if (!mergedFiles.containsKey("pack.mcmeta")) {
-            plugin.getLogger().info("No pack.mcmeta found, generating default");
+            logger.merge("No pack.mcmeta found, generating default");
             // pack_format 46 corresponds to Minecraft 1.21.4+
             String defaultMcmeta = """
                     {
@@ -175,7 +179,7 @@ public class PackMergeEngine {
         }
 
         if (mergedFiles.isEmpty()) {
-            plugin.getLogger().warning("No files to merge after processing all packs");
+            logger.warning("No files to merge after processing all packs");
             return null;
         }
 
@@ -188,14 +192,14 @@ public class PackMergeEngine {
         // Log the final file size for operator awareness
         long sizeBytes = outputFile.length();
         String sizeStr = formatSize(sizeBytes);
-        plugin.getLogger().info("Merged pack written: " + outputFile.getName() + " (" + sizeStr + ")");
+        logger.merge("Merged pack written: " + outputFile.getName() + " (" + sizeStr + ")");
 
         // Warn if the pack exceeds the configured size threshold
         int warningMb = config.getSizeWarningMb();
         if (warningMb > 0) {
             long sizeMb = sizeBytes / (1024 * 1024);
             if (sizeMb > warningMb) {
-                plugin.getLogger().warning("WARNING: Merged pack is " + sizeStr +
+                logger.warning("Merged pack is " + sizeStr +
                         ", which exceeds the configured threshold of " + warningMb +
                         " MB. Large packs may cause download failures for players on slow connections.");
             }
@@ -308,6 +312,13 @@ public class PackMergeEngine {
      */
     private void mergeZip(File zipFile, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson, boolean stripJunk) throws IOException {
         try (ZipFile zf = new ZipFile(zipFile)) {
+            // Detect if all entries share a common root folder prefix (e.g. "MyPack/assets/...")
+            // Many third-party packs are zipped with a wrapper folder that needs stripping
+            String rootPrefix = detectRootPrefix(zf);
+            if (rootPrefix != null) {
+                logger.debug("Stripping root folder prefix '" + rootPrefix + "' from " + zipFile.getName());
+            }
+
             Enumeration<? extends ZipEntry> entries = zf.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
@@ -316,11 +327,17 @@ public class PackMergeEngine {
                 String path = normalizePath(entry.getName());
                 if (path.isEmpty()) continue;
 
+                // Strip the root folder prefix if one was detected
+                if (rootPrefix != null) {
+                    if (path.startsWith(rootPrefix)) {
+                        path = path.substring(rootPrefix.length());
+                    }
+                    if (path.isEmpty()) continue;
+                }
+
                 // Optionally strip OS metadata and hidden files
                 if (stripJunk && isJunkFile(path)) {
-                    if (plugin.getConfigManager().isDebug()) {
-                        plugin.getLogger().info("Stripping junk: " + path);
-                    }
+                    logger.debug("Stripping junk: " + path);
                     continue;
                 }
 
@@ -332,6 +349,65 @@ public class PackMergeEngine {
                 processFile(path, data, mergedFiles, mergedJson);
             }
         }
+    }
+
+    /**
+     * Detects whether all entries in a zip share a common root folder prefix.
+     *
+     * <p>Many resource packs are zipped with a wrapper directory (e.g. the zip contains
+     * {@code MyPack/assets/...} instead of {@code assets/...}). This method detects that
+     * pattern by checking if any entry starts with {@code assets/} or {@code pack.mcmeta}
+     * at the root level. If not, it looks for a single common top-level directory that
+     * contains those files and returns it as the prefix to strip.</p>
+     *
+     * @param zf the zip file to inspect
+     * @return the root prefix to strip (e.g. {@code "MyPack/"}), or {@code null} if no stripping is needed
+     */
+    private String detectRootPrefix(ZipFile zf) {
+        boolean hasRootAssets = false;
+        boolean hasRootMcmeta = false;
+        Set<String> topLevelDirs = new HashSet<>();
+
+        Enumeration<? extends ZipEntry> entries = zf.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            String name = normalizePath(entry.getName());
+            if (name.isEmpty()) continue;
+
+            // Check if assets/ or pack.mcmeta exist at the root level
+            if (name.startsWith("assets/") || name.equals("assets")) {
+                hasRootAssets = true;
+            }
+            if (name.equals("pack.mcmeta")) {
+                hasRootMcmeta = true;
+            }
+
+            // Track top-level directories
+            int slash = name.indexOf('/');
+            if (slash > 0) {
+                topLevelDirs.add(name.substring(0, slash));
+            }
+        }
+
+        // If assets/ or pack.mcmeta exist at root, no stripping needed
+        if (hasRootAssets || hasRootMcmeta) {
+            return null;
+        }
+
+        // If there's exactly one top-level directory, check if it contains assets/ or pack.mcmeta
+        if (topLevelDirs.size() == 1) {
+            String prefix = topLevelDirs.iterator().next() + "/";
+            entries = zf.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = normalizePath(entry.getName());
+                if (name.startsWith(prefix + "assets/") || name.equals(prefix + "pack.mcmeta")) {
+                    return prefix;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -352,16 +428,14 @@ public class PackMergeEngine {
                     if (relativePath.isEmpty()) return;
 
                     if (stripJunk && isJunkFile(relativePath)) {
-                        if (plugin.getConfigManager().isDebug()) {
-                            plugin.getLogger().info("Stripping junk: " + relativePath);
-                        }
+                        logger.debug("Stripping junk: " + relativePath);
                         return;
                     }
 
                     byte[] data = Files.readAllBytes(filePath);
                     processFile(relativePath, data, mergedFiles, mergedJson);
                 } catch (IOException e) {
-                    plugin.getLogger().log(Level.WARNING, "Failed to read file: " + filePath, e);
+                    logger.warning("Failed to read file: " + filePath, e);
                 }
             });
         }
@@ -400,16 +474,14 @@ public class PackMergeEngine {
                         // Model/blockstate JSON: deep merge preserving non-conflicting keys
                         mergedJson.put(path, JsonMerger.deepMerge(newJson, existing));
                     }
-                    if (plugin.getConfigManager().isDebug()) {
-                        plugin.getLogger().info("JSON merged: " + path);
-                    }
+                    logger.debug("JSON merged: " + path);
                 } else {
                     // First occurrence of this file — store it as-is
                     mergedJson.put(path, newJson);
                 }
             } else {
                 // Invalid JSON in a mergeable path — fall back to raw overwrite with a warning
-                plugin.getLogger().warning("Invalid JSON in mergeable file (using raw): " + path);
+                logger.warning("Invalid JSON in mergeable file (using raw): " + path);
                 mergedFiles.put(path, data);
             }
         } else {

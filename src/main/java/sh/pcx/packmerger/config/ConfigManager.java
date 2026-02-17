@@ -139,11 +139,11 @@ public class ConfigManager {
     private String notifyMessage;
 
     // -------------------------------------------------------------------------
-    // Debug
+    // Logging
     // -------------------------------------------------------------------------
 
-    /** Enables verbose debug logging throughout the plugin. */
-    private boolean debug;
+    /** Minimum log level for console output. */
+    private String logLevel;
 
     /**
      * Creates a new configuration manager bound to the given plugin instance.
@@ -222,8 +222,8 @@ public class ConfigManager {
         notifyMessage = config.getString("distribution.on-new-pack.notify-message",
                 "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>");
 
-        // Debug
-        debug = config.getBoolean("debug", false);
+        // Logging
+        logLevel = config.getString("log-level", "info");
     }
 
     /**
@@ -348,11 +348,11 @@ public class ConfigManager {
     public String getNotifyMessage() { return notifyMessage; }
 
     // -------------------------------------------------------------------------
-    // Getters — Debug
+    // Getters — Logging
     // -------------------------------------------------------------------------
 
-    /** @return {@code true} if verbose debug logging is enabled */
-    public boolean isDebug() { return debug; }
+    /** @return the configured minimum log level string */
+    public String getLogLevel() { return logLevel; }
 
     // -------------------------------------------------------------------------
     // Inner types

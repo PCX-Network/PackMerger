@@ -3,6 +3,7 @@ package sh.pcx.packmerger.upload;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 
 import java.io.*;
@@ -42,6 +43,9 @@ public class SelfHostProvider implements UploadProvider {
     /** Reference to the owning plugin for config access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /** The embedded HTTP server instance, or {@code null} if not started. */
     private HttpServer server;
 
@@ -65,6 +69,7 @@ public class SelfHostProvider implements UploadProvider {
      */
     public SelfHostProvider(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
     }
 
     /**
@@ -91,9 +96,9 @@ public class SelfHostProvider implements UploadProvider {
             // Thread pool sized to available processors, minimum 4 for reasonable concurrency
             server.setExecutor(Executors.newFixedThreadPool(Math.max(4, Runtime.getRuntime().availableProcessors())));
             server.start();
-            plugin.getLogger().info("Self-host HTTP server started on port " + port);
+            logger.upload("Self-host HTTP server started on port " + port);
         } catch (IOException e) {
-            plugin.getLogger().severe("Failed to start self-host HTTP server on port " + port + ": " + e.getMessage());
+            logger.error("Failed to start self-host HTTP server on port " + port + ": " + e.getMessage());
         }
     }
 
@@ -105,7 +110,7 @@ public class SelfHostProvider implements UploadProvider {
         if (server != null) {
             server.stop(2); // 2-second grace period for in-flight downloads
             server = null;
-            plugin.getLogger().info("Self-host HTTP server stopped");
+            logger.upload("Self-host HTTP server stopped");
         }
     }
 

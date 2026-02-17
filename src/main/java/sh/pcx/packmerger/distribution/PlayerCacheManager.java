@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PluginLogger;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -11,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
 
 /**
  * Tracks which resource pack version each player has successfully downloaded.
@@ -37,6 +37,9 @@ public class PlayerCacheManager {
     /** Reference to the owning plugin for config access and logging. */
     private final PackMerger plugin;
 
+    /** Colored console logger. */
+    private final PluginLogger logger;
+
     /** The JSON file where the cache is persisted to disk. */
     private final File cacheFile;
 
@@ -57,6 +60,7 @@ public class PlayerCacheManager {
      */
     public PlayerCacheManager(PackMerger plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
         this.cacheFile = new File(plugin.getCacheFolder(), "player-cache.json");
     }
 
@@ -68,7 +72,7 @@ public class PlayerCacheManager {
      */
     public void load() {
         if (!cacheFile.exists()) {
-            plugin.getLogger().info("No player cache file found, starting fresh");
+            logger.info("No player cache file found, starting fresh");
             return;
         }
 
@@ -83,13 +87,13 @@ public class PlayerCacheManager {
                         cache.put(UUID.fromString(entry.getKey()), entry.getValue());
                     } catch (IllegalArgumentException e) {
                         // Skip entries with malformed UUIDs (e.g. from manual file edits)
-                        plugin.getLogger().warning("Invalid UUID in cache: " + entry.getKey());
+                        logger.warning("Invalid UUID in cache: " + entry.getKey());
                     }
                 }
-                plugin.getLogger().info("Loaded " + cache.size() + " player cache entries");
+                logger.info("Loaded " + cache.size() + " player cache entries");
             }
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Failed to load player cache", e);
+            logger.warning("Failed to load player cache", e);
         }
     }
 
@@ -111,7 +115,7 @@ public class PlayerCacheManager {
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(cacheFile), StandardCharsets.UTF_8))) {
             gson.toJson(rawCache, writer);
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Failed to save player cache", e);
+            logger.warning("Failed to save player cache", e);
         }
     }
 
