@@ -6,7 +6,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 
 - **Priority-based merging** — control which pack's files take precedence when packs overlap
 - **Intelligent JSON merging** — deep merges model and blockstate JSON to preserve non-conflicting entries; concatenates sounds.json arrays so sounds from multiple packs coexist
-- **Multiple upload providers** — built-in HTTP server, S3-compatible storage (AWS S3, Cloudflare R2, MinIO), or SFTP
+- **Multiple upload providers** — built-in HTTP server, S3-compatible storage (AWS S3, Cloudflare R2, MinIO), SFTP, or Polymath
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
@@ -103,7 +103,7 @@ merge:
 ```yaml
 upload:
   auto-upload: true              # Upload after every merge
-  provider: "self-host"          # "self-host", "s3", or "sftp"
+  provider: "self-host"          # "self-host", "s3", "sftp", or "polymath"
 ```
 
 #### S3 / Cloudflare R2 Setup
@@ -156,6 +156,34 @@ upload:
 ```
 
 The self-host provider starts a built-in HTTP server. Players download from `http://<your-ip>:<port>/pack`. Make sure the port is open in your firewall.
+
+#### Polymath Setup
+
+[Polymath](https://github.com/oraxen/polymath) is a lightweight Python web server originally created by Oraxen/Nexo for hosting Minecraft resource packs. You can use the public Oraxen instance or self-host your own.
+
+**Using the public Oraxen instance:**
+
+```yaml
+upload:
+  provider: "polymath"
+  polymath:
+    server: "http://atlas.oraxen.com"
+    secret: "oraxen"
+    id: ""           # Uses server name from config or server.properties
+```
+
+**Using a self-hosted Polymath instance:**
+
+```yaml
+upload:
+  provider: "polymath"
+  polymath:
+    server: "http://your-polymath-host:5000"
+    secret: "your-custom-secret"
+    id: "my-server"
+```
+
+To self-host Polymath, you need Python installed. See the [Polymath GitHub repo](https://github.com/oraxen/polymath) for setup instructions.
 
 ### Distribution
 
@@ -212,7 +240,7 @@ All commands require `packmerger.admin` permission (default: op).
    - **sounds.json** (`assets/<ns>/sounds.json`) sound arrays are concatenated so sounds from all packs coexist
 4. **Override** — if `pack.mcmeta` or `pack.png` exists directly in the packs folder (not inside a pack), it replaces whatever the merge produced
 5. **Validate** — the merged zip is checked for pack.mcmeta structure, JSON syntax errors, and missing texture/model references
-6. **Upload** — the merged zip is sent to the configured provider (self-host, S3, or SFTP)
+6. **Upload** — the merged zip is sent to the configured provider (self-host, S3, SFTP, or Polymath)
 7. **Distribute** — if the pack's SHA-1 hash changed, online players are handled according to the `on-new-pack` action
 
 ### Priority Order & Conflict Resolution

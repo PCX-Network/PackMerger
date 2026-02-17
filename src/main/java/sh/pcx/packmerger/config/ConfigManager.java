@@ -145,6 +145,19 @@ public class ConfigManager {
     private int selfHostRateLimit;
 
     // -------------------------------------------------------------------------
+    // Polymath settings
+    // -------------------------------------------------------------------------
+
+    /** Polymath server URL (e.g. "http://atlas.oraxen.com"). */
+    private String polymathServer;
+
+    /** Shared secret for Polymath upload authentication. */
+    private String polymathSecret;
+
+    /** Unique ID for this server's pack on the Polymath instance. Empty = use server name. */
+    private String polymathId;
+
+    // -------------------------------------------------------------------------
     // Distribution settings
     // -------------------------------------------------------------------------
 
@@ -260,6 +273,11 @@ public class ConfigManager {
         selfHostPort = config.getInt("upload.self-host.port", 8080);
         selfHostPublicUrl = config.getString("upload.self-host.public-url", "");
         selfHostRateLimit = config.getInt("upload.self-host.rate-limit", 50);
+
+        // Polymath settings
+        polymathServer = config.getString("upload.polymath.server", "http://atlas.oraxen.com");
+        polymathSecret = config.getString("upload.polymath.secret", "oraxen");
+        polymathId = config.getString("upload.polymath.id", "");
 
         // Distribution settings
         distributionEnabled = config.getBoolean("distribution.enabled", true);
@@ -401,6 +419,15 @@ public class ConfigManager {
 
     /** @return the maximum concurrent downloads for the self-host server (0 = unlimited) */
     public int getSelfHostRateLimit() { return selfHostRateLimit; }
+
+    /** @return the Polymath server URL (e.g. "http://atlas.oraxen.com") */
+    public String getPolymathServer() { return polymathServer; }
+
+    /** @return the shared secret for Polymath upload authentication */
+    public String getPolymathSecret() { return polymathSecret; }
+
+    /** @return the unique ID for this server's pack on the Polymath instance, or empty to use server name */
+    public String getPolymathId() { return polymathId; }
 
     // -------------------------------------------------------------------------
     // Getters — Distribution

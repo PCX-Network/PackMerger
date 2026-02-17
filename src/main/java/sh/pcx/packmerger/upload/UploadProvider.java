@@ -15,6 +15,7 @@ import java.io.File;
  *   <li>{@link S3UploadProvider} — uploads to S3-compatible storage (AWS S3, Cloudflare R2, MinIO)</li>
  *   <li>{@link SFTPUploadProvider} — uploads via SFTP to a remote web server</li>
  *   <li>{@link SelfHostProvider} — serves the pack from a built-in HTTP server</li>
+ *   <li>{@link PolymathUploadProvider} — uploads to a Polymath server (public Oraxen instance or self-hosted)</li>
  * </ul>
  *
  * <p>The provider is selected by the {@code upload.provider} config setting and
