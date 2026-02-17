@@ -1,0 +1,348 @@
+# =============================================================================
+# PackMerger Configuration
+# =============================================================================
+# This file controls all aspects of the PackMerger plugin: how packs are merged,
+# where the merged result is uploaded, and how it's distributed to players.
+#
+# After making changes, run /packmerger reload to apply them.
+# =============================================================================
+
+# =============================================================================
+# Server Identity
+# =============================================================================
+
+# The name of this server, used to look up per-server pack configurations below.
+# If left empty (default), the plugin reads the "server-name" property from
+# server.properties automatically. This is useful for multi-server networks
+# where each backend server needs a slightly different merged pack.
+#
+# Valid values: any string, or "" for auto-detection
+# Default: "" (auto-detect from server.properties)
+server-name: ""
+
+# =============================================================================
+# Pack Priority
+# =============================================================================
+
+# Ordered list of resource pack filenames that determines merge precedence.
+# The first entry has the HIGHEST priority — its files win when two packs contain
+# the same non-mergeable file (e.g. the same texture path).
+#
+# Use the exact filename including the .zip extension for zip packs, or the folder
+# name for unzipped packs placed directly in the packs/ directory.
+#
+# Packs found in the packs/ folder but not listed here will still be merged, but
+# at the lowest priority with a console warning. Add them here to control ordering.
+priority:
+  - "main-pack.zip"
+  - "ui-overhaul.zip"
+  - "custom-models.zip"
+
+# =============================================================================
+# Per-Server Pack Configuration
+# =============================================================================
+
+# Allows each server in a network to include additional packs or exclude certain
+# packs from the global priority list. The server is matched by the "server-name"
+# value above (case-insensitive).
+#
+# "additional" packs are merged at LOWER priority than the global priority list.
+# "exclude" packs are skipped entirely for that server.
+#
+# Only useful for multi-server setups. Leave commented out for single servers.
+server-packs:
+#  blazebornsmp:
+#    # Extra packs to include for this server only (merged at lowest priority)
+#    additional:
+#      - "blazeborn-textures.zip"
+#    # Packs from the global priority list to skip on this server
+#    exclude: []
+#  cobaltsmp:
+#    additional:
+#      - "cobalt-textures.zip"
+#    exclude:
+#      - "ui-pack.zip"
+
+# =============================================================================
+# Merge Settings
+# =============================================================================
+
+merge:
+  # Whether to automatically run the merge pipeline on server startup.
+  # If false, you must manually run /packmerger reload to trigger the first merge.
+  #
+  # Valid values: true, false
+  # Default: true
+  auto-merge-on-startup: true
+
+  # ---- Optimization ----
+  optimization:
+    # Remove junk and OS metadata files from the merged pack output.
+    # Strips files like .DS_Store, Thumbs.db, desktop.ini, .gitignore, and
+    # anything inside __MACOSX or .git directories.
+    #
+    # Valid values: true, false
+    # Default: true (recommended — these files waste space and serve no purpose)
+    strip-junk-files: true
+
+    # ZIP compression level for the merged output file.
+    #   0 = no compression (fastest build, largest file)
+    #   1-3 = light compression (fast)
+    #   4-6 = balanced (recommended)
+    #   7-9 = maximum compression (slowest build, smallest file)
+    #
+    # Higher compression reduces download size for players but increases merge time.
+    #
+    # Valid values: 0-9
+    # Default: 6 (good balance of size and speed)
+    compression-level: 6
+
+    # Log a console warning if the merged pack exceeds this size in megabytes.
+    # Large packs (100+ MB) may cause download timeouts for players on slow connections.
+    # Set to 0 to disable the warning.
+    #
+    # Valid values: 0 (disabled) or any positive integer
+    # Default: 100
+    size-warning-mb: 100
+
+  # ---- Hot Reload ----
+  hot-reload:
+    # Watch the packs/ folder for file changes and automatically re-merge.
+    # When enabled, adding, modifying, or removing a pack file triggers a new merge
+    # after the debounce period. Useful during development when iterating on packs.
+    #
+    # Valid values: true, false
+    # Default: true
+    enabled: true
+
+    # How many seconds to wait after the LAST file change before triggering a merge.
+    # This debounce prevents excessive re-merges when copying multiple files at once
+    # (e.g. extracting a new pack zip). The timer resets with each new file event.
+    #
+    # Valid values: any positive integer (recommended: 3-10)
+    # Default: 5
+    debounce-seconds: 5
+
+# =============================================================================
+# Upload Settings
+# =============================================================================
+
+upload:
+  # Whether to automatically upload the merged pack after every merge.
+  # If false, the merged pack is written to disk but not uploaded or served.
+  # You would need to manually distribute the file from the output/ folder.
+  #
+  # Valid values: true, false
+  # Default: true
+  auto-upload: true
+
+  # Which upload provider to use for serving the merged pack to players.
+  #
+  # Valid values:
+  #   "self-host" — built-in HTTP server (simplest, no external service needed)
+  #   "s3"        — S3-compatible storage (AWS S3, Cloudflare R2, MinIO, etc.)
+  #   "sftp"      — upload to a remote server via SFTP
+  #
+  # Default: "self-host"
+  provider: "self-host"
+
+  # ---- S3 / Cloudflare R2 / MinIO Configuration ----
+  # Only used when provider is "s3". Supports any S3-compatible object storage.
+  s3:
+    # The S3-compatible API endpoint URL.
+    # For AWS S3: leave empty (uses default AWS endpoints based on region)
+    # For Cloudflare R2: https://<account-id>.r2.cloudflarestorage.com
+    # For MinIO: http://your-minio-host:9000
+    #
+    # Default: "" (uses default AWS endpoint)
+    endpoint: "https://your-r2-endpoint.r2.cloudflarestorage.com"
+
+    # The AWS region for the bucket.
+    # For Cloudflare R2: use "auto"
+    # For AWS S3: use the actual region (e.g. "us-east-1")
+    #
+    # Default: "auto"
+    region: "auto"
+
+    # The S3 bucket name to upload into.
+    bucket: "resource-packs"
+
+    # AWS/R2 access key ID for authentication.
+    # For R2: find this in the Cloudflare dashboard under R2 > Manage R2 API Tokens.
+    access-key: "your-access-key"
+
+    # AWS/R2 secret access key for authentication.
+    # Keep this value secret — do not share your config file publicly.
+    secret-key: "your-secret-key"
+
+    # The object key (path within the bucket) where the pack will be stored.
+    # This is the file path inside the bucket, not a filesystem path.
+    #
+    # Default: "packs/merged-pack.zip"
+    object-key: "packs/merged-pack.zip"
+
+    # The public-facing base URL that players download from.
+    # This should be the URL of your CDN or public bucket endpoint.
+    # The final download URL will be: <public-url>/<object-key>
+    #
+    # Example: if public-url is "https://cdn.example.com" and object-key is
+    # "packs/merged-pack.zip", the download URL will be:
+    # https://cdn.example.com/packs/merged-pack.zip
+    public-url: "https://cdn.example.com"
+
+  # ---- SFTP Configuration ----
+  # Only used when provider is "sftp". Uploads the pack to a remote server via SFTP.
+  sftp:
+    # The SFTP server hostname or IP address.
+    host: "files.example.com"
+
+    # The SFTP server port.
+    # Default: 22 (standard SSH/SFTP port)
+    port: 22
+
+    # Username for SFTP authentication.
+    username: "upload"
+
+    # Password for SFTP authentication. Leave empty if using private key auth.
+    # If both password and private-key-path are set, the private key is tried first.
+    password: ""
+
+    # Path to an SSH private key file for key-based authentication.
+    # Supports OpenSSH format keys. Leave empty to use password auth instead.
+    # Example: "/home/minecraft/.ssh/id_rsa"
+    private-key-path: ""
+
+    # The full remote file path where the pack will be uploaded.
+    # Parent directories are created automatically if they don't exist.
+    remote-path: "/var/www/packs/merged-pack.zip"
+
+    # The public URL where players can download the pack after upload.
+    # This should correspond to the web server serving the remote-path directory.
+    public-url: "https://files.example.com/packs/merged-pack.zip"
+
+  # ---- Self-Host Configuration ----
+  # Only used when provider is "self-host". Runs a built-in HTTP server.
+  self-host:
+    # The port for the built-in HTTP server to listen on.
+    # Make sure this port is open in your firewall and not used by another service.
+    # Players will download from: http://<your-server-ip>:<port>/pack
+    #
+    # Default: 8080
+    port: 8080
+
+    # The public-facing URL that players use to download the pack.
+    # If left empty, the plugin auto-constructs it using the server-ip from
+    # server.properties and the port above (e.g. http://1.2.3.4:8080/pack).
+    #
+    # Set this explicitly if your server is behind a reverse proxy, NAT, or
+    # if the auto-detected IP is incorrect (e.g. shows "localhost").
+    #
+    # Default: "" (auto-detect)
+    public-url: ""
+
+    # Maximum number of concurrent pack downloads allowed at the same time.
+    # When the limit is reached, additional download requests get a 429 (Too Many
+    # Requests) response until a slot opens up. This prevents the server from being
+    # overwhelmed during mass player joins.
+    #
+    # Set to 0 for unlimited concurrent downloads (not recommended for large servers).
+    #
+    # Valid values: 0 (unlimited) or any positive integer
+    # Default: 50
+    rate-limit: 50
+
+# =============================================================================
+# Distribution Settings
+# =============================================================================
+
+distribution:
+  # Whether to automatically send the resource pack to players when they join.
+  # If false, the pack is merged and uploaded but never sent to players automatically.
+  # You can still use /packmerger apply to send it manually.
+  #
+  # Valid values: true, false
+  # Default: true
+  enabled: true
+
+  # Whether the resource pack is required. If true, players who decline the pack
+  # will be kicked from the server. The kick message is controlled by Minecraft.
+  #
+  # Valid values: true, false
+  # Default: false
+  required: false
+
+  # Custom prompt message shown to players when they receive the resource pack request.
+  # Uses MiniMessage formatting (https://docs.advntr.dev/minimessage/format.html).
+  # Leave empty to use Minecraft's default prompt.
+  #
+  # Example: "<yellow>Please accept our resource pack for the best experience!</yellow>"
+  #
+  # Default: "" (Minecraft default)
+  prompt-message: ""
+
+  # Controls how the pack is applied to the player's client:
+  #   false — replaces all existing resource packs (clearResourcePacks + sendResourcePacks)
+  #   true  — adds this pack alongside any existing packs (sendResourcePacks only)
+  #
+  # Use "true" if players may have other server resource packs loaded simultaneously
+  # (e.g. in a network with multiple pack sources). Requires Minecraft 1.20.3+.
+  #
+  # Valid values: true, false
+  # Default: false (replace existing packs)
+  use-add-resource-pack: false
+
+  # Delay in server ticks (1 tick = 50ms) before sending the pack after a player joins.
+  # A short delay gives the client time to finish loading the world before receiving
+  # the pack prompt. Too short may cause the prompt to appear before the player can
+  # interact; too long feels sluggish.
+  #
+  # Valid values: any non-negative integer (recommended: 10-40)
+  # Default: 20 (1 second)
+  join-delay-ticks: 20
+
+  # ---- Player Cache ----
+  cache:
+    # Track which resource pack version each player has downloaded.
+    # When enabled, players who rejoin with the same pack version skip the download
+    # entirely, reducing bandwidth and improving join speed. The cache is stored in
+    # plugins/PackMerger/cache/player-cache.json and persisted every 5 minutes.
+    #
+    # Disable this if you want every player to re-download the pack on every join
+    # (not recommended for production).
+    #
+    # Valid values: true, false
+    # Default: true
+    enabled: true
+
+  # ---- New Pack Behavior ----
+  on-new-pack:
+    # What to do when a new merged pack is produced while players are already online
+    # (e.g. after a hot-reload or manual /packmerger reload).
+    #
+    # Valid values:
+    #   "none"   — do nothing; players get the new pack on next join
+    #   "notify" — send a chat message to players with the packmerger.notify permission
+    #   "resend" — immediately send the new pack to all online players (may interrupt gameplay)
+    #
+    # Default: "notify"
+    action: "notify"
+
+    # The chat message sent to online players when action is "notify".
+    # Uses MiniMessage formatting. Only sent to players with the packmerger.notify
+    # permission (default: all players).
+    #
+    # Default: (see below)
+    notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
+
+# =============================================================================
+# Debug
+# =============================================================================
+
+# Enable verbose debug logging. When true, the plugin logs detailed information
+# about every step: file changes detected, individual files merged, pack sends
+# to specific players, validation details, etc. Useful for troubleshooting but
+# very noisy for production use.
+#
+# Valid values: true, false
+# Default: false
+debug: false

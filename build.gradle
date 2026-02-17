@@ -1,0 +1,58 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.6'
+}
+
+group = 'sh.pcx'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+
+    implementation 'software.amazon.awssdk:s3:2.29.45'
+    implementation 'org.apache.commons:commons-compress:1.27.1'
+    implementation 'com.jcraft:jsch:0.1.55'
+}
+
+tasks.named('shadowJar') {
+    archiveClassifier.set('')
+    relocate 'software.amazon', 'sh.pcx.packmerger.libs.software.amazon'
+    relocate 'org.apache.commons.compress', 'sh.pcx.packmerger.libs.commons.compress'
+    relocate 'com.jcraft.jsch', 'sh.pcx.packmerger.libs.jsch'
+    relocate 'org.reactivestreams', 'sh.pcx.packmerger.libs.reactivestreams'
+    relocate 'org.apache.http', 'sh.pcx.packmerger.libs.apache.http'
+    relocate 'io.netty', 'sh.pcx.packmerger.libs.netty'
+
+    mergeServiceFiles()
+
+    minimize {
+        exclude(dependency('software.amazon.awssdk:.*'))
+    }
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('shadowJar')
+}
+
+tasks.named('processResources') {
+    filesMatching('plugin.yml') {
+        expand version: project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
