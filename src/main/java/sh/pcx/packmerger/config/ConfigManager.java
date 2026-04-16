@@ -151,6 +151,12 @@ public class ConfigManager {
     /** Whether validation warnings (not just errors) should also trigger rollback. */
     private boolean failOnWarnings;
 
+    /** Whether to scan the merged output for unreferenced textures/sounds. */
+    private boolean detectOrphans;
+
+    /** How many top-by-size orphan entries to include in the summary report. */
+    private int orphanReportLimit;
+
     // -------------------------------------------------------------------------
     // Logging
     // -------------------------------------------------------------------------
@@ -239,6 +245,8 @@ public class ConfigManager {
         packFormatCheckMode = config.getString("validation.pack-format-check", "warn");
         rollbackOnErrors = config.getBoolean("validation.rollback-on-errors", true);
         failOnWarnings = config.getBoolean("validation.fail-on-warnings", false);
+        detectOrphans = config.getBoolean("validation.detect-orphans", true);
+        orphanReportLimit = config.getInt("validation.orphan-report-limit", 20);
 
         // Logging
         logLevel = config.getString("log-level", "info");
@@ -380,6 +388,12 @@ public class ConfigManager {
 
     /** @return {@code true} if validation warnings should also trigger rollback (default {@code false}) */
     public boolean isFailOnWarnings() { return failOnWarnings; }
+
+    /** @return {@code true} (default) if the validator should scan for unreferenced assets */
+    public boolean isDetectOrphans() { return detectOrphans; }
+
+    /** @return how many top-by-size orphans to include in the summary (default 20) */
+    public int getOrphanReportLimit() { return orphanReportLimit; }
 
     // -------------------------------------------------------------------------
     // Getters — Logging

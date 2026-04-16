@@ -202,11 +202,43 @@ public class PackValidator {
             logger.error("Validation: " + msg);
         }
 
+        // Check 5: Orphan asset detection (unreferenced textures/sounds in the output).
+        // Reported as warnings so it never blocks shipping.
+        if (plugin.getConfigManager().isDetectOrphans()) {
+            try (ZipFile zf = new ZipFile(packFile)) {
+                int limit = plugin.getConfigManager().getOrphanReportLimit();
+                OrphanDetector.OrphanReport report = OrphanDetector.scan(zf, limit);
+                if (report.count() > 0) {
+                    messages.add("WARNING: " + report.count() + " orphan asset(s) in output (~"
+                            + formatBytes(report.totalBytes()) + " of unused data). "
+                            + "Top " + Math.min(limit, report.topLargest().size())
+                            + " by size:");
+                    for (OrphanDetector.Orphan o : report.topLargest()) {
+                        messages.add("WARNING:   " + o.path() + " (" + formatBytes(o.size()) + ")");
+                    }
+                    logger.warning("Validation: " + report.count() + " orphan assets ("
+                            + formatBytes(report.totalBytes()) + " bloat)");
+                } else {
+                    logger.debug("Validation: no orphan assets detected");
+                }
+            } catch (IOException e) {
+                logger.debug("Validation: orphan scan failed: " + e.getMessage());
+            }
+        }
+
         // Recount warnings from messages since checkBlockstateModels adds directly to the list
         warnings = (int) messages.stream().filter(m -> m.startsWith("WARNING:")).count();
 
         logger.info("Validation complete: " + warnings + " warnings, " + errors + " errors");
         return new ValidationResult(warnings, errors, messages);
+    }
+
+    /** Compact human-readable byte count for orphan reports. */
+    private static String formatBytes(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024L * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
     }
 
     /**

@@ -331,6 +331,27 @@ validation:
   # Default: false
   fail-on-warnings: false
 
+  # Scan the merged pack for textures and sounds that no JSON file references.
+  # Unreferenced assets ship to every player download for nothing, so surfacing
+  # them lets you trim bloated packs. Reported as warnings — never errors —
+  # and the scan runs after every merge.
+  #
+  # Note: atlas sources of type "filter" (regex-based) aren't expanded, so
+  # packs that rely on them may see false-positive orphan warnings for matched
+  # textures. Disable this check if that's noisy for your pack set.
+  #
+  # Valid values: true, false
+  # Default: true
+  detect-orphans: true
+
+  # How many of the largest orphan assets to list in the validation summary.
+  # The full list is written to output/last-merge-report.txt via /pm inspect
+  # export if you need the complete picture.
+  #
+  # Valid values: any positive integer
+  # Default: 20
+  orphan-report-limit: 20
+
 # =============================================================================
 # Logging
 # =============================================================================
