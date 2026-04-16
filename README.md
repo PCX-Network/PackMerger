@@ -5,7 +5,8 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 ## Features
 
 - **Priority-based merging** — control which pack's files take precedence when packs overlap
-- **Intelligent JSON merging** — deep merges model and blockstate JSON to preserve non-conflicting entries; concatenates sounds.json arrays so sounds from multiple packs coexist
+- **Format-aware JSON merging** — dedicated strategies per Minecraft JSON format (models, blockstates, atlases, items, equipment, sounds, font, language, `pack.mcmeta`) so array data from multiple packs is preserved instead of silently overwritten
+- **CustomModelData collision warnings** — logs a warning when two packs both claim the same `custom_model_data` predicate so operators get a diagnostic trail instead of a silent drop
 - **Multiple upload providers** — Polymath server or built-in HTTP server
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
@@ -24,7 +25,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 ## Installation
 
 1. Build the plugin (see [Building](#building)) or download the release jar
-2. Place `PackMerger-1.0.1.jar` into your server's `plugins/` folder
+2. Place `PackMerger-1.0.5.jar` into your server's `plugins/` folder
 3. Start the server — the plugin generates `config.yml` and creates the `packs/`, `output/`, and `cache/` directories under `plugins/PackMerger/`
 4. Place your resource pack `.zip` files or unzipped pack folders into `plugins/PackMerger/packs/`
 5. Edit `plugins/PackMerger/config.yml` to configure priority order, upload provider, and distribution settings
@@ -39,7 +40,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 The shaded jar (with all dependencies bundled) is output to:
 
 ```
-build/libs/PackMerger-1.0.1.jar
+build/libs/PackMerger-1.0.5.jar
 ```
 
 Requires Java 21 to compile.
@@ -185,8 +186,10 @@ All commands require `packmerger.admin` permission (default: op).
 2. **Order** — builds a merge order based on the priority config, per-server includes/excludes, and any unlisted packs
 3. **Merge** — iterates packs from lowest to highest priority, collecting files into memory:
    - **Non-JSON files** (textures, sounds, shaders, etc.) use last-write-wins — higher priority overwrites lower
-   - **Model and blockstate JSON** (`assets/<ns>/models/`, `assets/<ns>/blockstates/`) are deep merged — non-conflicting keys from both packs are preserved
+   - **Model and blockstate JSON** (`assets/<ns>/models/`, `assets/<ns>/blockstates/`) are deep merged — non-conflicting keys from both packs are preserved; item-model `overrides` arrays concat-dedup by predicate so CustomModelData from multiple packs survives
    - **sounds.json** (`assets/<ns>/sounds.json`) sound arrays are concatenated so sounds from all packs coexist
+   - **Language files** (`assets/<ns>/lang/*.json`) key-union so translations from multiple packs compose; higher priority wins on the same key
+   - **pack.mcmeta** preserves both `overlays.entries[]` and `filter.block[]` from every pack — deduped by `directory` and by `namespace|path` respectively
 4. **Override** — if `pack.mcmeta` or `pack.png` exists directly in the packs folder (not inside a pack), it replaces whatever the merge produced
 5. **Validate** — the merged zip is checked for pack.mcmeta structure, JSON syntax errors, and missing texture/model references
 6. **Upload** — the merged zip is sent to the configured provider (Polymath or self-host)
@@ -197,8 +200,11 @@ All commands require `packmerger.admin` permission (default: op).
 Packs are listed highest-priority first in the config. When two packs contain the same file path:
 
 - **Non-JSON files**: the higher-priority pack's version is used
-- **Mergeable JSON** (models, blockstates): keys are deep-merged recursively — conflicting keys use the higher-priority value, non-conflicting keys from both are preserved
+- **Mergeable JSON** (models, blockstates, items, equipment, atlases, font): keys are deep-merged recursively — conflicting keys use the higher-priority value, non-conflicting keys from both are preserved
+- **Array-valued JSON fields** (`overrides`, `sources`, `providers`, `multipart`, `overlays.entries`, `filter.block`): concatenated across packs and deduped by a format-specific identity key (e.g. predicate, namespace/path, directory) so additions from every pack survive; higher priority wins on identity collision
 - **sounds.json**: sound arrays for the same event are concatenated (higher-priority sounds listed first)
+- **Language files** (`lang/*.json`): flat key-union — translations from all packs coexist, high priority wins on the same translation key
+- **CustomModelData collisions**: when two packs claim the same `custom_model_data` predicate, the lower-priority entry is dropped by the predicate dedup and a warning is logged with the file path and the offending predicate so operators can spot "my knife turned into a pistol"-style conflicts at merge time
 
 ### Per-Server Packs
 
@@ -233,6 +239,13 @@ After a player successfully loads a resource pack, the plugin records the pack's
 - **"Missing texture"** — a model references a texture path that doesn't exist in the merged pack. The texture may be in a pack that was excluded or not added
 - **"Missing model"** — a blockstate references a model that doesn't exist. Same cause as missing textures
 - Validation warnings don't prevent the pack from being sent — they indicate potential visual issues in-game
+
+### "CustomModelData collision" warning in the console
+
+- This warning is emitted when two packs both define an `overrides` entry with the same `predicate` (e.g. both claim `custom_model_data: 1000001` on `minecraft:iron_sword`)
+- The higher-priority pack's entry wins; the lower-priority entry is dropped
+- The warning lists the file path and the offending predicate so you can reassign one side's CustomModelData to a different number to avoid the conflict
+- This is informational — the pack still ships successfully. The warning exists so you aren't surprised at runtime when one pack's custom model silently replaces another
 
 ### Hot reload not detecting changes
 

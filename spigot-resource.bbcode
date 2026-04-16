@@ -40,6 +40,18 @@ Instead of forcing players to manually install or merge packs, drop your packs i
 [*][B]Colored Console Logging[/B] - Readable category tags with configurable log levels
 [/LIST]
 
+[B][SIZE=4]v1.0.5 Features[/SIZE][/B]
+[LIST]
+[*][B]Language File Merging[/B] - [FONT=Courier New]assets/<ns>/lang/*.json[/FONT] translation files now key-union instead of last-write-wins, so stacking multiple plugins that localize messages into the same [FONT=Courier New]en_us.json[/FONT] no longer silently drops one side's translations
+[*][B]pack.mcmeta filter.block Preservation[/B] - [FONT=Courier New]filter.block[][/FONT] entries (used to hide specific vanilla assets) are now concatenated and deduped by [FONT=Courier New]namespace|path[/FONT] across packs, mirroring the 1.0.4 [FONT=Courier New]overlays.entries[/FONT] fix
+[*][B]CustomModelData Collision Warnings[/B] - When two packs claim the same [FONT=Courier New]custom_model_data[/FONT] predicate on an item model, a warning is now logged at merge time with the file path and offending predicate — no more silent "my knife turned into a pistol" bug reports
+[/LIST]
+
+[B][SIZE=4]v1.0.4 Features[/SIZE][/B]
+[LIST]
+[*][B]pack.mcmeta Overlays Preservation[/B] - [FONT=Courier New]overlays.entries[][/FONT] declarations (used by QualityArmory and other packs for version-specific asset directories) are now concat-deduped by [FONT=Courier New]directory[/FONT] instead of being dropped when a higher-priority pack's [FONT=Courier New]pack.mcmeta[/FONT] wins
+[/LIST]
+
 [B][SIZE=4]v1.0.3 Features[/SIZE][/B]
 [LIST]
 [*][B]Path-Specific Merge Strategies[/B] - The JSON merger is now split into dedicated strategies per Minecraft format
@@ -48,7 +60,7 @@ Instead of forcing players to manually install or merge packs, drop your packs i
 [*][B]1.21.2+ Equipment Models[/B] - [FONT=Courier New]assets/<ns>/equipment/[/FONT] files are now recognised and merged per slot
 [*][B]1.19.3+ Texture Atlases[/B] - [FONT=Courier New]assets/<ns>/atlases/[/FONT] sources are concatenated instead of replaced
 [*][B]Font Providers[/B] - [FONT=Courier New]assets/<ns>/font/*.json[/FONT] providers arrays now concat so custom chat-icon packs compose cleanly
-[*][B]Comprehensive Test Suite[/B] - 28 unit tests covering every merge strategy, including a regression test for the QualityArmory scenario
+[*][B]Comprehensive Test Suite[/B] - Unit tests covering every merge strategy, including regression tests for the QualityArmory, overlay, filter, and CMD-collision scenarios
 [/LIST]
 
 [CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Requirements ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
@@ -171,13 +183,15 @@ log-level: "info"                # "debug", "info", "warning", or "error"[/CODE]
 PackMerger uses a different merge strategy for each Minecraft resource-pack JSON format, because naive deep-merge silently drops array data:
 
 [LIST]
-[*][B]Models[/B] ([FONT=Courier New]assets/<ns>/models/*.json[/FONT]) - Deep merge objects; [FONT=Courier New]overrides[/FONT] arrays concat and dedup by [FONT=Courier New]predicate[/FONT] (this is what makes QualityArmory CustomModelData merges survive)
+[*][B]Models[/B] ([FONT=Courier New]assets/<ns>/models/*.json[/FONT]) - Deep merge objects; [FONT=Courier New]overrides[/FONT] arrays concat and dedup by [FONT=Courier New]predicate[/FONT] (this is what makes QualityArmory CustomModelData merges survive). When two packs collide on the same predicate a warning is logged so the silent drop is visible to operators.
 [*][B]Blockstates[/B] ([FONT=Courier New]assets/<ns>/blockstates/*.json[/FONT]) - Variants merge per selector key; [FONT=Courier New]multipart[/FONT] cases concat and dedup by [FONT=Courier New]when[/FONT] clause
 [*][B]Atlases[/B] ([FONT=Courier New]assets/<ns>/atlases/*.json[/FONT]) - [FONT=Courier New]sources[/FONT] arrays concat with structural dedup (1.19.3+)
 [*][B]Item Definitions[/B] ([FONT=Courier New]assets/<ns>/items/*.json[/FONT]) - Key-level deep merge (1.21.4+)
 [*][B]Equipment[/B] ([FONT=Courier New]assets/<ns>/equipment/*.json[/FONT]) - Key-level deep merge per slot (1.21.2+)
 [*][B]Sounds[/B] ([FONT=Courier New]assets/<ns>/sounds.json[/FONT]) - Per-event sound arrays concat so all variants coexist
 [*][B]Font[/B] ([FONT=Courier New]assets/<ns>/font/*.json[/FONT]) - [FONT=Courier New]providers[/FONT] arrays concat so custom glyph packs compose
+[*][B]Language[/B] ([FONT=Courier New]assets/<ns>/lang/*.json[/FONT]) - Translation keys union across packs; higher priority wins on collision so plugins layering localizations into [FONT=Courier New]en_us.json[/FONT] no longer lose each other's strings
+[*][B]pack.mcmeta[/B] - Deep-merge on the metadata block; [FONT=Courier New]overlays.entries[][/FONT] concat-dedup by [FONT=Courier New]directory[/FONT] (v1.0.4) and [FONT=Courier New]filter.block[][/FONT] concat-dedup by [FONT=Courier New]namespace|path[/FONT] (v1.0.5)
 [*][B]Everything else[/B] (textures, audio, shaders) - Simple overwrite: higher priority wins
 [/LIST]
 
@@ -247,6 +261,15 @@ As of v1.0.3 this is fixed — item-model [FONT=Courier New]overrides[/FONT] arr
 [*]Confirm the QualityArmory pack zip actually contains its [FONT=Courier New]assets/qualityarmory/[/FONT] namespace — unzip the merged output and check
 [*]Run [FONT=Courier New]/pm validate[/FONT] to surface missing-model / missing-texture references
 [*]On older versions, workaround: place QualityArmory as highest priority, or avoid letting other packs redefine the same [FONT=Courier New]assets/minecraft/models/item/*.json[/FONT] files
+[/LIST]
+[/SPOILER]
+
+[SPOILER="\"CustomModelData collision\" warning in the console"]
+Since v1.0.5, when two packs both define an item-model override with the same [FONT=Courier New]predicate[/FONT] (e.g. both claim [FONT=Courier New]custom_model_data: 1000001[/FONT] on [FONT=Courier New]iron_sword[/FONT]), PackMerger logs a warning naming the file and the offending predicate. This is informational — the pack still ships. It surfaces silent drops that previously only showed up in-game when the wrong item rendered.
+[LIST]
+[*]The higher-priority pack's override wins; the lower-priority entry is dropped
+[*]The warning lists the file path and predicate so you can reassign one side's CustomModelData to a different number
+[*]If you don't want to change the pack, pick the one that should win and make sure it is listed above the other in [FONT=Courier New]priority[/FONT]
 [/LIST]
 [/SPOILER]
 
