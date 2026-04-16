@@ -97,6 +97,18 @@ public class PluginLogger {
         log("<green>[UPLOAD]</green>", message);
     }
 
+    /** Validation-pipeline messages (pack_format checks, orphan reports, rollback decisions). */
+    public void validation(String message) {
+        if (!isEnabled(LogLevel.INFO)) return;
+        log("<light_purple>[VALIDATION]</light_purple>", message);
+    }
+
+    /** Remote pack fetch messages (HTTP downloads, cache hits, fetch failures). */
+    public void remote(String message) {
+        if (!isEnabled(LogLevel.INFO)) return;
+        log("<blue>[REMOTE]</blue>", message);
+    }
+
     /** Non-fatal issue warnings. */
     public void warning(String message) {
         if (!isEnabled(LogLevel.WARNING)) return;
