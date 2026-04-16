@@ -1,5 +1,6 @@
 package sh.pcx.packmerger.commands;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
@@ -100,6 +101,25 @@ public class PackMergerCommand {
                                             .executes(this::handleInspectExport))
                                     .then(Commands.argument("pack", StringArgumentType.string())
                                             .executes(this::handleInspectPack)))
+                            .then(Commands.literal("priority")
+                                    .then(Commands.literal("list")
+                                            .executes(this::handlePriorityList))
+                                    .then(Commands.literal("up")
+                                            .then(Commands.argument("pack", StringArgumentType.string())
+                                                    .executes(ctx -> handlePriorityMove(ctx, "up"))))
+                                    .then(Commands.literal("down")
+                                            .then(Commands.argument("pack", StringArgumentType.string())
+                                                    .executes(ctx -> handlePriorityMove(ctx, "down"))))
+                                    .then(Commands.literal("top")
+                                            .then(Commands.argument("pack", StringArgumentType.string())
+                                                    .executes(ctx -> handlePriorityMove(ctx, "top"))))
+                                    .then(Commands.literal("bottom")
+                                            .then(Commands.argument("pack", StringArgumentType.string())
+                                                    .executes(ctx -> handlePriorityMove(ctx, "bottom"))))
+                                    .then(Commands.literal("set")
+                                            .then(Commands.argument("pack", StringArgumentType.string())
+                                                    .then(Commands.argument("position", IntegerArgumentType.integer(1))
+                                                            .executes(this::handlePrioritySet)))))
                             .build(),
                     "PackMerger admin commands",
                     List.of("pm") // Register /pm as an alias for /packmerger
@@ -329,6 +349,83 @@ public class PackMergerCommand {
         MergeProvenance prov = plugin.getLastMergeProvenance();
         sendAll(sender, InspectRenderer.packDetail(prov, packName));
         return 1;
+    }
+
+    // ---- /pm priority ---------------------------------------------------
+
+    /** {@code /pm priority list} — show current priority order with 1-based indices. */
+    private int handlePriorityList(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        List<String> priority = plugin.getConfigManager().getPriority();
+        if (priority.isEmpty()) {
+            sender.sendMessage(MINI.deserialize("<gray>Priority list is empty.</gray>"));
+            return 1;
+        }
+        sender.sendMessage(MINI.deserialize("<aqua>━━━ Priority (highest first) ━━━</aqua>"));
+        for (int i = 0; i < priority.size(); i++) {
+            sender.sendMessage(MINI.deserialize(
+                    "<yellow>" + (i + 1) + ".</yellow> <white>" + priority.get(i) + "</white>"));
+        }
+        return 1;
+    }
+
+    /** Shared handler for up/down/top/bottom ops. */
+    private int handlePriorityMove(CommandContext<CommandSourceStack> ctx, String op) {
+        CommandSender sender = ctx.getSource().getSender();
+        String pack = StringArgumentType.getString(ctx, "pack");
+        List<String> current = plugin.getConfigManager().getPriority();
+
+        List<String> updated;
+        try {
+            updated = switch (op) {
+                case "up" -> PriorityMutator.up(current, pack);
+                case "down" -> PriorityMutator.down(current, pack);
+                case "top" -> PriorityMutator.top(current, pack);
+                case "bottom" -> PriorityMutator.bottom(current, pack);
+                default -> throw new IllegalStateException("unknown op: " + op);
+            };
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(MINI.deserialize("<red>" + e.getMessage() + "</red>"));
+            return 0;
+        }
+
+        persistPriorityAndReMerge(sender, updated, "moved <white>" + pack + "</white> " + op);
+        return 1;
+    }
+
+    /** {@code /pm priority set <pack> <position>} — absolute 1-based placement. */
+    private int handlePrioritySet(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String pack = StringArgumentType.getString(ctx, "pack");
+        int position = IntegerArgumentType.getInteger(ctx, "position");
+        List<String> current = plugin.getConfigManager().getPriority();
+
+        List<String> updated;
+        try {
+            updated = PriorityMutator.set(current, pack, position);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(MINI.deserialize("<red>" + e.getMessage() + "</red>"));
+            return 0;
+        }
+
+        persistPriorityAndReMerge(sender, updated, "set <white>" + pack + "</white> to position " + position);
+        return 1;
+    }
+
+    /**
+     * Writes the updated priority list back to {@code config.yml} via Bukkit's
+     * config API, invalidates the cached ConfigManager state, and triggers a
+     * re-merge. Comments in the on-disk config are lost — Bukkit's YAML writer
+     * doesn't preserve them. Documented behaviour; the alternative (manual
+     * YAML mutation) is a rabbit hole we're not opening for this feature.
+     */
+    private void persistPriorityAndReMerge(CommandSender sender, List<String> updated, String what) {
+        plugin.getConfig().set("priority", updated);
+        plugin.saveConfig();
+        plugin.getConfigManager().load();
+        sender.sendMessage(MINI.deserialize("<green>Priority updated:</green> <gray>" + what + "</gray>"));
+        sender.sendMessage(MINI.deserialize("<gray>Triggering merge with new priority…</gray>"));
+        plugin.mergeAndUpload(sender);
     }
 
     /** {@code /pm inspect export} — write the full report to output/last-merge-report.txt. */
