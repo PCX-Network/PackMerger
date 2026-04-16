@@ -219,6 +219,7 @@ upload:
   # Valid values:
   #   "polymath"  — self-hosted Polymath server instance
   #   "self-host" — built-in HTTP server (simplest, no external service needed)
+  #   "s3"        — any S3-compatible object store: AWS S3, Cloudflare R2, Backblaze B2
   #
   # Default: "self-host"
   provider: "self-host"
@@ -280,6 +281,73 @@ upload:
     # Valid values: 0 (unlimited) or any positive integer
     # Default: 50
     rate-limit: 50
+
+  # ---- S3 / R2 / Backblaze B2 Configuration ----
+  # Only used when provider is "s3". Uploads the merged pack to any S3-compatible
+  # object store. One config works for AWS S3, Cloudflare R2, and Backblaze B2 —
+  # only the endpoint URL differs.
+  #
+  # Credentials support ${VAR_NAME} env substitution so secrets don't live in
+  # config.yml. Commit env vars via your process manager / systemd unit.
+  s3:
+    # S3 API endpoint. Examples:
+    #   AWS:       "https://s3.us-east-1.amazonaws.com"
+    #   R2:        "https://<account-id>.r2.cloudflarestorage.com"
+    #   Backblaze: "https://s3.us-west-004.backblazeb2.com"
+    endpoint: ""
+
+    # SigV4 region. R2 accepts "auto". AWS uses the canonical region name.
+    # Backblaze uses the region shown in your bucket's endpoint URL.
+    region: "us-east-1"
+
+    # Target bucket. Must already exist and be writable by the access key below.
+    bucket: ""
+
+    # Credentials. Prefer env-var substitution:
+    access-key: "${S3_ACCESS_KEY}"
+    secret-key: "${S3_SECRET_KEY}"
+
+    # Optional: prefix every object key with this (no leading slash).
+    # Example: "packs/" produces objects like "packs/<sha1>.zip".
+    path-prefix: ""
+
+    # CDN base URL served in front of the bucket. If set, the returned pack URL
+    # is "<public-url-base>/<key>" — so you'd set this to your CDN/Worker host.
+    # Leave empty to fall back to "<endpoint>/<bucket>/<key>" which works for
+    # public buckets on R2 and Backblaze out of the box.
+    public-url-base: ""
+
+    # ACL applied to uploaded objects.
+    #   "public-read" — anyone with the URL can download (default)
+    #   "private"     — returns a short-lived presigned URL instead
+    acl: "public-read"
+
+    # Cache-Control header attached to uploads. Long TTL is fine when
+    # key-strategy is content-addressed (each merge gets a new URL).
+    cache-control: "public, max-age=3600"
+
+    # How object keys are chosen:
+    #   "content-addressed" — "<prefix><sha1>.zip". Each merge writes a new key,
+    #                         so clients that have cached the previous URL keep
+    #                         their copy until a hash change forces a re-download.
+    #                         Recommended for correctness. Use retention to bound
+    #                         storage.
+    #   "stable"            — "<prefix><server-name>.zip". Every merge overwrites
+    #                         the same object. Simpler, but breaks client HTTP
+    #                         caching since the URL never changes.
+    #
+    # Default: "content-addressed"
+    key-strategy: "content-addressed"
+
+    # When acl is "private", URLs are presigned with this lifetime.
+    # Ignored when acl is "public-read".
+    presign-duration-hours: 24
+
+    # Retention policy for content-addressed keys. After each successful upload,
+    # list objects under <path-prefix> and delete anything beyond the latest N.
+    # Set to 0 to disable (unbounded growth).
+    retention:
+      keep-latest: 5
 
 # =============================================================================
 # Distribution Settings

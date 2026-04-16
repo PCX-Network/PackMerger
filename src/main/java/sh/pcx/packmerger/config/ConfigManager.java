@@ -127,6 +127,13 @@ public class ConfigManager {
     private String polymathId;
 
     // -------------------------------------------------------------------------
+    // S3 settings
+    // -------------------------------------------------------------------------
+
+    /** S3-compatible upload configuration; {@code null} when upload.provider != "s3". */
+    private S3Config s3Config;
+
+    // -------------------------------------------------------------------------
     // Distribution settings
     // -------------------------------------------------------------------------
 
@@ -281,6 +288,21 @@ public class ConfigManager {
         polymathServer = config.getString("upload.polymath.server", "");
         polymathSecret = config.getString("upload.polymath.secret", "");
         polymathId = config.getString("upload.polymath.id", "");
+
+        // S3-compatible upload settings
+        s3Config = new S3Config(
+                config.getString("upload.s3.endpoint", ""),
+                config.getString("upload.s3.region", "us-east-1"),
+                config.getString("upload.s3.bucket", ""),
+                config.getString("upload.s3.access-key", ""),
+                config.getString("upload.s3.secret-key", ""),
+                config.getString("upload.s3.path-prefix", ""),
+                config.getString("upload.s3.public-url-base", ""),
+                config.getString("upload.s3.acl", "public-read"),
+                config.getString("upload.s3.cache-control", "public, max-age=3600"),
+                config.getString("upload.s3.key-strategy", "content-addressed"),
+                config.getInt("upload.s3.presign-duration-hours", 24),
+                config.getInt("upload.s3.retention.keep-latest", 5));
 
         // Distribution settings
         distributionEnabled = config.getBoolean("distribution.enabled", true);
@@ -464,6 +486,9 @@ public class ConfigManager {
     /** @return the unique ID for this server's pack on the Polymath instance, or empty to use server name */
     public String getPolymathId() { return polymathId; }
 
+    /** @return S3-compatible upload settings (never {@code null}; fields may be empty when unused) */
+    public S3Config getS3Config() { return s3Config; }
+
     // -------------------------------------------------------------------------
     // Getters — Distribution
     // -------------------------------------------------------------------------
@@ -535,4 +560,44 @@ public class ConfigManager {
      * @param exclude    list of pack filenames to exclude from merging on this server
      */
     public record ServerPackConfig(List<String> additional, List<String> exclude) {}
+
+    /**
+     * S3-compatible upload configuration. One record covers AWS S3, Cloudflare R2,
+     * and Backblaze B2 since they all speak the S3 API.
+     *
+     * @param endpoint        the S3 API endpoint (e.g. {@code https://s3.amazonaws.com},
+     *                        {@code https://<account>.r2.cloudflarestorage.com})
+     * @param region          SigV4 region; use {@code "auto"} for R2
+     * @param bucket          target bucket name
+     * @param accessKey       access key ID (supports {@code ${VAR}} env substitution)
+     * @param secretKey       secret access key (supports env substitution)
+     * @param pathPrefix      optional object-key prefix (e.g. {@code "packs/"})
+     * @param publicUrlBase   CDN-in-front base URL; if empty, URL is constructed
+     *                        from {@code endpoint + bucket + key}
+     * @param acl             {@code "public-read"} or {@code "private"}; private
+     *                        triggers presigned URLs
+     * @param cacheControl    {@code Cache-Control} header applied to uploads
+     * @param keyStrategy     {@code "content-addressed"} (default, {@code <sha1>.zip})
+     *                        or {@code "stable"} ({@code <server-name>.zip} that overwrites)
+     * @param presignHours    when {@code acl == "private"}, signed-URL lifetime in hours
+     * @param retainLatest    number of most-recent content-addressed keys to keep;
+     *                        older objects with the path prefix are deleted. 0 disables.
+     */
+    public record S3Config(
+            String endpoint,
+            String region,
+            String bucket,
+            String accessKey,
+            String secretKey,
+            String pathPrefix,
+            String publicUrlBase,
+            String acl,
+            String cacheControl,
+            String keyStrategy,
+            int presignHours,
+            int retainLatest) {
+
+        public boolean isPrivateAcl() { return "private".equalsIgnoreCase(acl); }
+        public boolean isContentAddressed() { return !"stable".equalsIgnoreCase(keyStrategy); }
+    }
 }

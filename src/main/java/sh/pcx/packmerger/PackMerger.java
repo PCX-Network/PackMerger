@@ -21,6 +21,7 @@ import sh.pcx.packmerger.merge.PackValidator;
 import sh.pcx.packmerger.remote.FetchResult;
 import sh.pcx.packmerger.remote.RemotePackManager;
 import sh.pcx.packmerger.upload.PolymathUploadProvider;
+import sh.pcx.packmerger.upload.S3UploadProvider;
 import sh.pcx.packmerger.upload.SelfHostProvider;
 import sh.pcx.packmerger.upload.UploadProvider;
 
@@ -210,6 +211,17 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         String provider = configManager.getUploadProvider();
         uploadProvider = switch (provider.toLowerCase()) {
             case "polymath" -> new PolymathUploadProvider(this);
+            case "s3" -> {
+                try {
+                    yield new S3UploadProvider(this);
+                } catch (Exception e) {
+                    logger.error("S3 upload provider failed to initialize: " + e.getMessage()
+                            + ". Falling back to self-host.");
+                    SelfHostProvider selfHost = new SelfHostProvider(this);
+                    selfHost.start();
+                    yield selfHost;
+                }
+            }
             case "self-host" -> {
                 SelfHostProvider selfHost = new SelfHostProvider(this);
                 selfHost.start();
