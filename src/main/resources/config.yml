@@ -39,6 +39,38 @@ priority:
   - "custom-models.zip"
 
 # =============================================================================
+# Profiles (optional)
+# =============================================================================
+
+# Profiles let you switch entire pack compositions atomically via
+# /pm profile switch <name> — useful for seasonal events (halloween, anniversary)
+# or A/B testing different pack loadouts.
+#
+# When active-profile names a defined profile, its priority + server-packs
+# shadow the root-level keys above. When active-profile is empty or the
+# profiles section is absent, PackMerger uses the root-level keys as before.
+# This is fully backwards-compatible with 1.0.x configs.
+#
+# Default: profiles: {} (not in use; root-level priority/server-packs apply)
+active-profile: ""
+profiles:
+#  default:
+#    priority:
+#      - "main-pack.zip"
+#      - "ui-overhaul.zip"
+#    server-packs: {}
+#  halloween:
+#    priority:
+#      - "halloween-overlay.zip"
+#      - "main-pack.zip"
+#      - "ui-overhaul.zip"
+#    server-packs:
+#      survival:
+#        additional:
+#          - "halloween-survival.zip"
+#        exclude: []
+
+# =============================================================================
 # Per-Server Pack Configuration
 # =============================================================================
 

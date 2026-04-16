@@ -101,6 +101,13 @@ public class PackMergerCommand {
                                             .executes(this::handleInspectExport))
                                     .then(Commands.argument("pack", StringArgumentType.string())
                                             .executes(this::handleInspectPack)))
+                            .then(Commands.literal("profile")
+                                    .executes(this::handleProfileList)
+                                    .then(Commands.literal("list")
+                                            .executes(this::handleProfileList))
+                                    .then(Commands.literal("switch")
+                                            .then(Commands.argument("name", StringArgumentType.string())
+                                                    .executes(this::handleProfileSwitch))))
                             .then(Commands.literal("priority")
                                     .then(Commands.literal("list")
                                             .executes(this::handlePriorityList))
@@ -348,6 +355,47 @@ public class PackMergerCommand {
         String packName = StringArgumentType.getString(ctx, "pack");
         MergeProvenance prov = plugin.getLastMergeProvenance();
         sendAll(sender, InspectRenderer.packDetail(prov, packName));
+        return 1;
+    }
+
+    // ---- /pm profile ----------------------------------------------------
+
+    /** {@code /pm profile [list]} — list defined profiles and mark the active one. */
+    private int handleProfileList(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        var profiles = plugin.getConfigManager().getProfiles();
+        if (profiles.isEmpty()) {
+            sender.sendMessage(MINI.deserialize("<gray>No profiles defined. "
+                    + "Add a <white>profiles:</white> section to config.yml to use this feature.</gray>"));
+            return 1;
+        }
+        String active = plugin.getConfigManager().getActiveProfile();
+        sender.sendMessage(MINI.deserialize("<aqua>━━━ Profiles ━━━</aqua>"));
+        profiles.forEach((name, cfg) -> {
+            String marker = name.equals(active) ? " <green>(active)</green>" : "";
+            sender.sendMessage(MINI.deserialize("  <white>" + name + "</white>"
+                    + " <gray>[" + cfg.priority().size() + " packs]</gray>" + marker));
+        });
+        return 1;
+    }
+
+    /** {@code /pm profile switch <name>} — activate a profile and re-merge. */
+    private int handleProfileSwitch(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String name = StringArgumentType.getString(ctx, "name");
+        var profiles = plugin.getConfigManager().getProfiles();
+        if (!profiles.containsKey(name)) {
+            sender.sendMessage(MINI.deserialize("<red>Unknown profile: <white>" + name + "</white></red>"));
+            sender.sendMessage(MINI.deserialize("<gray>Known profiles:</gray> <white>"
+                    + String.join(", ", profiles.keySet()) + "</white>"));
+            return 0;
+        }
+        plugin.getConfig().set("active-profile", name);
+        plugin.saveConfig();
+        plugin.getConfigManager().load();
+        sender.sendMessage(MINI.deserialize("<green>Switched to profile <white>" + name + "</white></green>"));
+        sender.sendMessage(MINI.deserialize("<gray>Triggering merge with new profile…</gray>"));
+        plugin.mergeAndUpload(sender);
         return 1;
     }
 

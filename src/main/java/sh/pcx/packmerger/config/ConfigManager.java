@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.logging.Level;
 
 /**
  * Manages loading and access to all plugin configuration values from {@code config.yml}.
@@ -48,6 +49,16 @@ public class ConfigManager {
 
     /** Per-server pack configurations, keyed by lowercase server name. */
     private final Map<String, ServerPackConfig> serverPacks = new HashMap<>();
+
+    // -------------------------------------------------------------------------
+    // Profiles
+    // -------------------------------------------------------------------------
+
+    /** Name of the currently active profile, or {@code null} if profiles aren't in use. */
+    private String activeProfile;
+
+    /** All defined profiles, keyed by profile name. Empty when profiles aren't in use. */
+    private final Map<String, ProfileConfig> profiles = new LinkedHashMap<>();
 
     // -------------------------------------------------------------------------
     // Merge settings
@@ -193,7 +204,7 @@ public class ConfigManager {
         // Priority list — determines merge order (first = highest priority)
         priority = config.getStringList("priority");
 
-        // Per-server pack configurations
+        // Per-server pack configurations (root-level; profile may override below)
         serverPacks.clear();
         ConfigurationSection serverPacksSection = config.getConfigurationSection("server-packs");
         if (serverPacksSection != null) {
@@ -205,6 +216,39 @@ public class ConfigManager {
                     // Store with lowercase key for case-insensitive server name matching
                     serverPacks.put(server.toLowerCase(), new ServerPackConfig(additional, exclude));
                 }
+            }
+        }
+
+        // Profiles — optional. If present and active-profile is set, the active
+        // profile's priority + server-packs shadow the root-level values via
+        // getPriority() / getServerPackConfig().
+        profiles.clear();
+        activeProfile = config.getString("active-profile", null);
+        ConfigurationSection profilesSection = config.getConfigurationSection("profiles");
+        if (profilesSection != null) {
+            for (String profileName : profilesSection.getKeys(false)) {
+                ConfigurationSection profSection = profilesSection.getConfigurationSection(profileName);
+                if (profSection == null) continue;
+                List<String> profPriority = profSection.getStringList("priority");
+                Map<String, ServerPackConfig> profServerPacks = new HashMap<>();
+                ConfigurationSection profServerPacksSection = profSection.getConfigurationSection("server-packs");
+                if (profServerPacksSection != null) {
+                    for (String server : profServerPacksSection.getKeys(false)) {
+                        ConfigurationSection inner = profServerPacksSection.getConfigurationSection(server);
+                        if (inner == null) continue;
+                        profServerPacks.put(server.toLowerCase(), new ServerPackConfig(
+                                inner.getStringList("additional"),
+                                inner.getStringList("exclude")));
+                    }
+                }
+                profiles.put(profileName, new ProfileConfig(profileName, profPriority, profServerPacks));
+            }
+            // Sanity check: active-profile names a defined profile
+            if (activeProfile != null && !profiles.containsKey(activeProfile)) {
+                plugin.getLogger().log(Level.WARNING,
+                        "active-profile '" + activeProfile + "' is not defined under profiles: "
+                                + profiles.keySet() + ". Falling back to root-level priority.");
+                activeProfile = null;
             }
         }
 
@@ -282,18 +326,47 @@ public class ConfigManager {
     /** @return the server name used for per-server pack resolution */
     public String getServerName() { return serverName; }
 
-    /** @return the ordered priority list of pack filenames (first = highest priority) */
-    public List<String> getPriority() { return priority; }
+    /**
+     * @return the effective priority list — the active profile's if one is set,
+     *         otherwise the root-level {@code priority:} list. First entry =
+     *         highest priority.
+     */
+    public List<String> getPriority() {
+        ProfileConfig prof = getActiveProfileConfig();
+        return prof != null ? prof.priority() : priority;
+    }
 
-    /** @return all per-server pack configurations, keyed by lowercase server name */
-    public Map<String, ServerPackConfig> getServerPacks() { return serverPacks; }
+    /**
+     * @return the effective per-server pack configurations — the active
+     *         profile's if one is set, otherwise the root-level section
+     */
+    public Map<String, ServerPackConfig> getServerPacks() {
+        ProfileConfig prof = getActiveProfileConfig();
+        return prof != null ? prof.serverPacks() : serverPacks;
+    }
 
     /**
      * Returns the per-server pack configuration for this server, or {@code null} if none is defined.
-     *
-     * @return the matching {@link ServerPackConfig}, or {@code null}
+     * Profile-aware: consults the active profile's server-packs first.
      */
-    public ServerPackConfig getServerPackConfig() { return serverPacks.get(serverName.toLowerCase()); }
+    public ServerPackConfig getServerPackConfig() {
+        return getServerPacks().get(serverName.toLowerCase());
+    }
+
+    // -------------------------------------------------------------------------
+    // Getters — Profiles
+    // -------------------------------------------------------------------------
+
+    /** @return the active profile name, or {@code null} if profiles aren't in use */
+    public String getActiveProfile() { return activeProfile; }
+
+    /** @return the active profile's config, or {@code null} if no profile is active */
+    public ProfileConfig getActiveProfileConfig() {
+        return activeProfile == null ? null : profiles.get(activeProfile);
+    }
+
+    /** @return all defined profiles, keyed by name. Empty if the config has no {@code profiles:} section. */
+    public Map<String, ProfileConfig> getProfiles() { return profiles; }
 
     // -------------------------------------------------------------------------
     // Getters — Merge
