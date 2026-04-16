@@ -139,6 +139,13 @@ public class ConfigManager {
     private String notifyMessage;
 
     // -------------------------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------------------------
+
+    /** How to treat pack_format mismatches against the running server version: "warn", "error", or "off". */
+    private String packFormatCheckMode;
+
+    // -------------------------------------------------------------------------
     // Logging
     // -------------------------------------------------------------------------
 
@@ -221,6 +228,9 @@ public class ConfigManager {
         onNewPackAction = config.getString("distribution.on-new-pack.action", "notify");
         notifyMessage = config.getString("distribution.on-new-pack.notify-message",
                 "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>");
+
+        // Validation
+        packFormatCheckMode = config.getString("validation.pack-format-check", "warn");
 
         // Logging
         logLevel = config.getString("log-level", "info");
@@ -346,6 +356,16 @@ public class ConfigManager {
 
     /** @return the MiniMessage notification text for the "notify" action */
     public String getNotifyMessage() { return notifyMessage; }
+
+    // -------------------------------------------------------------------------
+    // Getters — Validation
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return how to treat pack_format mismatches: {@code "warn"} (default),
+     *         {@code "error"}, or {@code "off"} to disable the check
+     */
+    public String getPackFormatCheckMode() { return packFormatCheckMode; }
 
     // -------------------------------------------------------------------------
     // Getters — Logging

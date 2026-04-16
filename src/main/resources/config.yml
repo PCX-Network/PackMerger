@@ -287,6 +287,30 @@ distribution:
     notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
 
 # =============================================================================
+# Validation
+# =============================================================================
+
+validation:
+  # How to treat pack_format mismatches between the merged pack's pack.mcmeta
+  # and the running server's Minecraft version. Mismatches silently break
+  # rendering in-game (missing models, missing textures), so surfacing them at
+  # merge time is usually what you want.
+  #
+  # Valid values:
+  #   "warn"  — log a WARNING but allow the merge (default)
+  #   "error" — log an ERROR (counts toward validation errors, and — once
+  #             validation rollback is enabled in 1.1.0 — prevents shipping the
+  #             broken pack)
+  #   "off"   — skip the check entirely
+  #
+  # The registry of MC version → expected pack_format is maintained inside the
+  # plugin (PackFormatRegistry). If you're on a brand-new MC release that hasn't
+  # been added yet, the check silently skips so you don't get noise.
+  #
+  # Default: "warn"
+  pack-format-check: "warn"
+
+# =============================================================================
 # Logging
 # =============================================================================
 

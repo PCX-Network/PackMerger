@@ -1,6 +1,7 @@
 package sh.pcx.packmerger.merge;
 
 import com.google.gson.*;
+import org.bukkit.Bukkit;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -111,6 +112,9 @@ public class PackValidator {
                         String msg = "ERROR: pack.mcmeta is missing 'pack.pack_format' field";
                         messages.add(msg);
                         logger.error("Validation: " + msg);
+                    } else {
+                        // Check 1b: pack_format drift vs running server version
+                        errors += checkPackFormat(mcmeta.getAsJsonObject("pack"), messages);
                     }
                 } catch (JsonSyntaxException e) {
                     errors++;
@@ -203,6 +207,99 @@ public class PackValidator {
 
         logger.info("Validation complete: " + warnings + " warnings, " + errors + " errors");
         return new ValidationResult(warnings, errors, messages);
+    }
+
+    /**
+     * Compares the merged pack's {@code pack_format} to what the running Minecraft
+     * version expects, honoring the {@code validation.pack-format-check} mode:
+     * {@code off} = skip entirely, {@code warn} = append a WARNING:, {@code error}
+     * = append an ERROR: and return 1 so the caller increments its error counter.
+     *
+     * <p>Uses {@link PackFormatRegistry} as the source of truth for version →
+     * format mapping. If the server version isn't in the registry the check
+     * silently skips (no warning) so a new MC version doesn't spam false reports.</p>
+     *
+     * @return number of errors emitted (0 or 1)
+     */
+    private int checkPackFormat(JsonObject packBlock, List<String> messages) {
+        String mode = plugin.getConfigManager().getPackFormatCheckMode();
+        if (mode == null || mode.equalsIgnoreCase("off")) return 0;
+
+        JsonElement formatEl = packBlock.get("pack_format");
+        if (formatEl == null || !formatEl.isJsonPrimitive() || !formatEl.getAsJsonPrimitive().isNumber()) {
+            return 0;
+        }
+        int packFormat = formatEl.getAsInt();
+
+        int[] supportedFormats = extractSupportedFormats(packBlock.get("supported_formats"));
+
+        String mcVersion = getMinecraftVersion();
+        PackFormatRegistry.Drift drift = PackFormatRegistry.classify(packFormat, supportedFormats, mcVersion);
+
+        if (drift == PackFormatRegistry.Drift.MATCH || drift == PackFormatRegistry.Drift.UNKNOWN) {
+            return 0;
+        }
+
+        int expected = PackFormatRegistry.forMinecraftVersion(mcVersion);
+        String base = "pack_format " + packFormat + " in pack.mcmeta doesn't match server "
+                + mcVersion + " (expected " + expected + ")";
+
+        if (mode.equalsIgnoreCase("error") || drift == PackFormatRegistry.Drift.MAJOR) {
+            String msg = "ERROR: " + base + " — " + drift.name().toLowerCase() + " drift";
+            messages.add(msg);
+            logger.error("Validation: " + msg);
+            return 1;
+        } else {
+            String msg = "WARNING: " + base + " — " + drift.name().toLowerCase() + " drift";
+            messages.add(msg);
+            logger.warning("Validation: " + msg);
+            return 0;
+        }
+    }
+
+    /**
+     * Accepts the three valid JSON shapes for {@code supported_formats}: an int
+     * (treated as [n, n]), an array {@code [min, max]}, or an object
+     * {@code {"min_inclusive": m, "max_inclusive": n}}. Returns {@code null}
+     * for absent or malformed inputs.
+     */
+    private static int[] extractSupportedFormats(JsonElement el) {
+        if (el == null || el.isJsonNull()) return null;
+        if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) {
+            int n = el.getAsInt();
+            return new int[] { n, n };
+        }
+        if (el.isJsonArray()) {
+            JsonArray arr = el.getAsJsonArray();
+            if (arr.size() == 2 && arr.get(0).isJsonPrimitive() && arr.get(1).isJsonPrimitive()) {
+                return new int[] { arr.get(0).getAsInt(), arr.get(1).getAsInt() };
+            }
+            return null;
+        }
+        if (el.isJsonObject()) {
+            JsonObject obj = el.getAsJsonObject();
+            if (obj.has("min_inclusive") && obj.has("max_inclusive")) {
+                return new int[] { obj.get("min_inclusive").getAsInt(), obj.get("max_inclusive").getAsInt() };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @return the running Minecraft version string (e.g. {@code "1.21.4"}),
+     *         preferring Paper's {@code Bukkit.getMinecraftVersion()} and
+     *         falling back to parsing {@code Bukkit.getBukkitVersion()} if
+     *         the preferred method isn't available
+     */
+    private static String getMinecraftVersion() {
+        try {
+            return Bukkit.getMinecraftVersion();
+        } catch (NoSuchMethodError | NoClassDefFoundError e) {
+            // Fallback for non-Paper servers — parse "1.21.4-R0.1-SNAPSHOT"
+            String bukkit = Bukkit.getBukkitVersion();
+            int dash = bukkit.indexOf('-');
+            return dash > 0 ? bukkit.substring(0, dash) : bukkit;
+        }
     }
 
     /**
