@@ -24,6 +24,10 @@ dependencies {
 
     implementation 'org.apache.commons:commons-compress:1.27.1'
 
+    // MinIO Java SDK — covers AWS S3, Cloudflare R2, Backblaze B2 (all speak the
+    // S3 API). Pulls OkHttp + Okio transitively; relocated below.
+    implementation 'io.minio:minio:8.5.10'
+
     // Gson ships with paper-api at runtime; the test classpath needs it explicitly.
     testImplementation 'com.google.code.gson:gson:2.11.0'
     testImplementation platform('org.junit:junit-bom:5.11.3')
@@ -38,6 +42,16 @@ tasks.named('test') {
 tasks.named('shadowJar') {
     archiveClassifier.set('')
     relocate 'org.apache.commons.compress', 'sh.pcx.packmerger.libs.commons.compress'
+
+    // MinIO + its transitive runtime. Relocating prevents conflicts with other
+    // plugins that bundle different versions of OkHttp/Okio/Gson/Jackson/Xerces.
+    relocate 'io.minio',         'sh.pcx.packmerger.libs.minio'
+    relocate 'okhttp3',          'sh.pcx.packmerger.libs.okhttp3'
+    relocate 'okio',             'sh.pcx.packmerger.libs.okio'
+    relocate 'org.bouncycastle', 'sh.pcx.packmerger.libs.bouncycastle'
+    relocate 'com.fasterxml.jackson', 'sh.pcx.packmerger.libs.jackson'
+    relocate 'org.xerial.snappy',     'sh.pcx.packmerger.libs.snappy'
+    relocate 'org.apache.http',       'sh.pcx.packmerger.libs.apache.http'
 
     mergeServiceFiles()
     minimize()
