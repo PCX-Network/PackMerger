@@ -26,7 +26,7 @@ public class AtlasMergeStrategy implements MergeStrategy {
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
         boolean highHasSources = high.has(SOURCES_KEY) && high.get(SOURCES_KEY).isJsonArray();
         boolean lowHasSources = low.has(SOURCES_KEY) && low.get(SOURCES_KEY).isJsonArray();
 

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AtlasMergeStrategyTest {
 
     private final AtlasMergeStrategy strategy = new AtlasMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/atlases/blocks.json", null);
 
     @Test
     void matches_atlasPath() {
@@ -31,7 +32,7 @@ class AtlasMergeStrategyTest {
                   ]
                 }""");
 
-        JsonArray sources = strategy.merge(high, low).getAsJsonArray("sources");
+        JsonArray sources = strategy.merge(high, low, CTX).getAsJsonArray("sources");
         assertEquals(2, sources.size());
     }
 
@@ -50,7 +51,7 @@ class AtlasMergeStrategyTest {
                   ]
                 }""");
 
-        JsonArray sources = strategy.merge(high, low).getAsJsonArray("sources");
+        JsonArray sources = strategy.merge(high, low, CTX).getAsJsonArray("sources");
         assertEquals(1, sources.size(), "structurally-identical sources must dedup");
     }
 }

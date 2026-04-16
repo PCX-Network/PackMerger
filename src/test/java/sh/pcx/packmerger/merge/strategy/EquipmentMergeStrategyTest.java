@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class EquipmentMergeStrategyTest {
 
     private final EquipmentMergeStrategy strategy = new EquipmentMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/equipment/iron.json", null);
 
     @Test
     void matches_equipmentPath() {
@@ -30,7 +31,7 @@ class EquipmentMergeStrategyTest {
                   }
                 }""");
 
-        JsonObject layers = strategy.merge(high, low).getAsJsonObject("layers");
+        JsonObject layers = strategy.merge(high, low, CTX).getAsJsonObject("layers");
         assertTrue(layers.has("humanoid"));
         assertTrue(layers.has("humanoid_leggings"));
     }

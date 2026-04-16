@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BlockstateMergeStrategyTest {
 
     private final BlockstateMergeStrategy strategy = new BlockstateMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/blockstates/stone.json", null);
 
     @Test
     void matches_blockstatePath() {
@@ -32,7 +33,7 @@ class BlockstateMergeStrategyTest {
                   }
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         JsonObject variants = merged.getAsJsonObject("variants");
         assertTrue(variants.has("facing=north"));
         assertTrue(variants.has("facing=south"));
@@ -54,7 +55,7 @@ class BlockstateMergeStrategyTest {
                   ]
                 }""");
 
-        JsonArray cases = strategy.merge(high, low).getAsJsonArray("multipart");
+        JsonArray cases = strategy.merge(high, low, CTX).getAsJsonArray("multipart");
         assertEquals(2, cases.size());
         // High wins on duplicate "when"
         assertEquals("high:north", cases.get(0).getAsJsonObject()

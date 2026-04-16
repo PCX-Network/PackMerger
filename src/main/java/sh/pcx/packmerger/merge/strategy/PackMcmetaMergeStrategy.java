@@ -12,17 +12,19 @@ import java.util.Map;
  *
  * <p>Most of the file is a plain metadata object (the {@code pack} block with
  * {@code pack_format}, {@code description}, {@code supported_formats}) and is
- * handled by a standard high-priority-wins deep merge. The critical case this
- * strategy exists for is the {@code overlays.entries} array — packs like
- * QualityArmory use Minecraft's native overlay system to ship version-specific
- * assets (e.g. {@code 1_21_6/assets/...}) and declare the overlay directories
- * here. A naive last-write-wins on {@code pack.mcmeta} silently drops those
- * declarations when another pack's mcmeta has higher priority, leaving the
- * overlay directories inert in the output zip.</p>
+ * handled by a standard high-priority-wins deep merge. Two nested arrays get
+ * special handling because a naive object-only deep merge silently drops one
+ * side's entries:</p>
  *
- * <p>This strategy concatenates {@code overlays.entries} from all packs and
- * dedups by {@code directory} so each overlay declaration survives the merge,
- * with higher-priority entries winning on directory collision.</p>
+ * <ul>
+ *   <li>{@code overlays.entries} — packs like QualityArmory use Minecraft's
+ *       native overlay system to ship version-specific assets and declare the
+ *       overlay directories here. Concatenated and deduped by {@code directory}.</li>
+ *   <li>{@code filter.block} — declares namespace/path pairs that should be
+ *       hidden from the client. When two packs both filter vanilla assets,
+ *       one side's filters would otherwise be lost. Concatenated and deduped
+ *       by the {@code namespace + "|" + path} tuple.</li>
+ * </ul>
  */
 public class PackMcmetaMergeStrategy implements MergeStrategy {
 
@@ -30,42 +32,74 @@ public class PackMcmetaMergeStrategy implements MergeStrategy {
     private static final String ENTRIES_KEY = "entries";
     private static final String DIRECTORY_KEY = "directory";
 
+    private static final String FILTER_KEY = "filter";
+    private static final String BLOCK_KEY = "block";
+    private static final String NAMESPACE_KEY = "namespace";
+    private static final String PATH_KEY = "path";
+
     @Override
     public boolean matches(String path) {
         return path.equalsIgnoreCase("pack.mcmeta");
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
-        JsonObject highWithout = copyWithout(high, OVERLAYS_KEY);
-        JsonObject lowWithout = copyWithout(low, OVERLAYS_KEY);
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
+        JsonObject highWithout = copyWithout(high, OVERLAYS_KEY, FILTER_KEY);
+        JsonObject lowWithout = copyWithout(low, OVERLAYS_KEY, FILTER_KEY);
         JsonObject result = JsonMerger.deepMergeObjects(highWithout, lowWithout);
 
-        JsonObject highOverlays = getObjectOrNull(high, OVERLAYS_KEY);
-        JsonObject lowOverlays = getObjectOrNull(low, OVERLAYS_KEY);
-
-        if (highOverlays == null && lowOverlays == null) {
-            return result;
+        JsonObject mergedOverlays = mergeOverlays(high, low);
+        if (mergedOverlays != null) {
+            result.add(OVERLAYS_KEY, mergedOverlays);
         }
 
-        JsonObject highOverlaysNoEntries = highOverlays == null ? new JsonObject() : copyWithout(highOverlays, ENTRIES_KEY);
-        JsonObject lowOverlaysNoEntries = lowOverlays == null ? new JsonObject() : copyWithout(lowOverlays, ENTRIES_KEY);
-        JsonObject mergedOverlays = JsonMerger.deepMergeObjects(highOverlaysNoEntries, lowOverlaysNoEntries);
-
-        JsonArray highEntries = getArrayOrEmpty(highOverlays, ENTRIES_KEY);
-        JsonArray lowEntries = getArrayOrEmpty(lowOverlays, ENTRIES_KEY);
-        if (highEntries.size() > 0 || lowEntries.size() > 0) {
-            JsonArray mergedEntries = JsonMerger.concatArraysWithDedup(highEntries, lowEntries, PackMcmetaMergeStrategy::entryIdentity);
-            mergedOverlays.add(ENTRIES_KEY, mergedEntries);
+        JsonObject mergedFilter = mergeFilter(high, low);
+        if (mergedFilter != null) {
+            result.add(FILTER_KEY, mergedFilter);
         }
 
-        result.add(OVERLAYS_KEY, mergedOverlays);
         return result;
     }
 
     @Override
     public String name() {
         return "pack_mcmeta";
+    }
+
+    private static JsonObject mergeOverlays(JsonObject high, JsonObject low) {
+        JsonObject highOverlays = getObjectOrNull(high, OVERLAYS_KEY);
+        JsonObject lowOverlays = getObjectOrNull(low, OVERLAYS_KEY);
+        if (highOverlays == null && lowOverlays == null) return null;
+
+        JsonObject highNoEntries = highOverlays == null ? new JsonObject() : copyWithout(highOverlays, ENTRIES_KEY);
+        JsonObject lowNoEntries = lowOverlays == null ? new JsonObject() : copyWithout(lowOverlays, ENTRIES_KEY);
+        JsonObject merged = JsonMerger.deepMergeObjects(highNoEntries, lowNoEntries);
+
+        JsonArray highEntries = getArrayOrEmpty(highOverlays, ENTRIES_KEY);
+        JsonArray lowEntries = getArrayOrEmpty(lowOverlays, ENTRIES_KEY);
+        if (highEntries.size() > 0 || lowEntries.size() > 0) {
+            JsonArray mergedEntries = JsonMerger.concatArraysWithDedup(highEntries, lowEntries, PackMcmetaMergeStrategy::entryIdentity);
+            merged.add(ENTRIES_KEY, mergedEntries);
+        }
+        return merged;
+    }
+
+    private static JsonObject mergeFilter(JsonObject high, JsonObject low) {
+        JsonObject highFilter = getObjectOrNull(high, FILTER_KEY);
+        JsonObject lowFilter = getObjectOrNull(low, FILTER_KEY);
+        if (highFilter == null && lowFilter == null) return null;
+
+        JsonObject highNoBlock = highFilter == null ? new JsonObject() : copyWithout(highFilter, BLOCK_KEY);
+        JsonObject lowNoBlock = lowFilter == null ? new JsonObject() : copyWithout(lowFilter, BLOCK_KEY);
+        JsonObject merged = JsonMerger.deepMergeObjects(highNoBlock, lowNoBlock);
+
+        JsonArray highBlock = getArrayOrEmpty(highFilter, BLOCK_KEY);
+        JsonArray lowBlock = getArrayOrEmpty(lowFilter, BLOCK_KEY);
+        if (highBlock.size() > 0 || lowBlock.size() > 0) {
+            JsonArray mergedBlock = JsonMerger.concatArraysWithDedup(highBlock, lowBlock, PackMcmetaMergeStrategy::filterBlockIdentity);
+            merged.add(BLOCK_KEY, mergedBlock);
+        }
+        return merged;
     }
 
     /**
@@ -82,6 +116,27 @@ public class PackMcmetaMergeStrategy implements MergeStrategy {
         return element.toString();
     }
 
+    /**
+     * Dedup key for a filter.block entry, based on its {@code namespace + "|" + path}
+     * tuple. Either side is optional in the pack.mcmeta schema (an entry with only
+     * {@code path} filters all namespaces); entries with neither field fall back to
+     * their raw string form to avoid silently merging unrelated malformed entries.
+     */
+    private static String filterBlockIdentity(JsonElement element) {
+        if (!element.isJsonObject()) return element.toString();
+        JsonObject obj = element.getAsJsonObject();
+        String ns = stringOrNull(obj, NAMESPACE_KEY);
+        String path = stringOrNull(obj, PATH_KEY);
+        if (ns == null && path == null) return element.toString();
+        return (ns == null ? "" : ns) + "|" + (path == null ? "" : path);
+    }
+
+    private static String stringOrNull(JsonObject obj, String key) {
+        if (!obj.has(key)) return null;
+        JsonElement el = obj.get(key);
+        return el.isJsonPrimitive() ? el.getAsString() : null;
+    }
+
     private static JsonObject getObjectOrNull(JsonObject source, String key) {
         if (source == null || !source.has(key)) return null;
         JsonElement element = source.get(key);
@@ -94,12 +149,14 @@ public class PackMcmetaMergeStrategy implements MergeStrategy {
         return element.isJsonArray() ? element.getAsJsonArray() : new JsonArray();
     }
 
-    private static JsonObject copyWithout(JsonObject source, String excludedKey) {
+    private static JsonObject copyWithout(JsonObject source, String... excludedKeys) {
         JsonObject copy = new JsonObject();
+        outer:
         for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
-            if (!entry.getKey().equals(excludedKey)) {
-                copy.add(entry.getKey(), entry.getValue().deepCopy());
+            for (String excluded : excludedKeys) {
+                if (entry.getKey().equals(excluded)) continue outer;
             }
+            copy.add(entry.getKey(), entry.getValue().deepCopy());
         }
         return copy;
     }

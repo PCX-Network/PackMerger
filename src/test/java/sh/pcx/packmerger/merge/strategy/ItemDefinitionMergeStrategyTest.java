@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ItemDefinitionMergeStrategyTest {
 
     private final ItemDefinitionMergeStrategy strategy = new ItemDefinitionMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/items/iron_sword.json", null);
 
     @Test
     void matches_itemsPath() {
@@ -33,7 +34,7 @@ class ItemDefinitionMergeStrategyTest {
                   }
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         JsonObject model = merged.getAsJsonObject("model");
         assertEquals("high:item/sword", model.get("model").getAsString());
         assertTrue(model.has("tints"));

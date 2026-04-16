@@ -29,9 +29,11 @@ public interface MergeStrategy {
      *
      * @param high the higher-priority pack's JSON (wins on primitive/object conflicts)
      * @param low  the lower-priority pack's JSON (contributes non-conflicting data)
+     * @param ctx  per-call context for path-scoped logging; strategies that don't
+     *             need to emit diagnostics may ignore it
      * @return a new merged {@link JsonObject} — neither input is modified
      */
-    JsonObject merge(JsonObject high, JsonObject low);
+    JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx);
 
     /**
      * @return a short identifier used in debug logs (e.g. {@code "model"}, {@code "atlas"})

@@ -20,7 +20,7 @@ public class EquipmentMergeStrategy implements MergeStrategy {
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
         return JsonMerger.deepMergeObjects(high, low);
     }
 

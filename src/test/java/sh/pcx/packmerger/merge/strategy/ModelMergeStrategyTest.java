@@ -5,11 +5,15 @@ import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 import sh.pcx.packmerger.merge.JsonMerger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ModelMergeStrategyTest {
 
     private final ModelMergeStrategy strategy = new ModelMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/models/item/iron_sword.json", null);
 
     @Test
     void matches_itemModelPath() {
@@ -49,7 +53,7 @@ class ModelMergeStrategyTest {
                   ]
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         JsonArray overrides = merged.getAsJsonArray("overrides");
 
         assertEquals(3, overrides.size(), "all three overrides must survive");
@@ -78,7 +82,7 @@ class ModelMergeStrategyTest {
                   ]
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         JsonArray overrides = merged.getAsJsonArray("overrides");
 
         assertEquals(2, overrides.size());
@@ -97,7 +101,7 @@ class ModelMergeStrategyTest {
                   ]
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         assertEquals("item/handheld", merged.get("parent").getAsString());
         assertEquals(1, merged.getAsJsonArray("overrides").size());
     }
@@ -117,8 +121,61 @@ class ModelMergeStrategyTest {
                   ]
                 }""");
 
-        JsonArray overrides = strategy.merge(high, low).getAsJsonArray("overrides");
+        JsonArray overrides = strategy.merge(high, low, CTX).getAsJsonArray("overrides");
         assertEquals(1, overrides.size(), "predicates with reordered keys must dedup");
         assertEquals("high", overrides.get(0).getAsJsonObject().get("model").getAsString());
+    }
+
+    @Test
+    void predicateCollision_emitsWarning() {
+        List<String> warnings = new ArrayList<>();
+        MergeContext ctx = new MergeContext("assets/minecraft/models/item/iron_sword.json", warnings::add);
+
+        JsonObject high = JsonMerger.parseJson("""
+                {
+                  "overrides": [
+                    { "predicate": { "custom_model_data": 1000001 }, "model": "mod_a:item/knife" }
+                  ]
+                }""");
+        JsonObject low = JsonMerger.parseJson("""
+                {
+                  "overrides": [
+                    { "predicate": { "custom_model_data": 1000001 }, "model": "mod_b:item/pistol" },
+                    { "predicate": { "custom_model_data": 1000002 }, "model": "mod_b:item/rifle" }
+                  ]
+                }""");
+
+        strategy.merge(high, low, ctx);
+
+        assertEquals(1, warnings.size(), "exactly one collision should be reported");
+        String warning = warnings.get(0);
+        assertTrue(warning.contains("assets/minecraft/models/item/iron_sword.json"),
+                "warning should include file path; was: " + warning);
+        assertTrue(warning.contains("1000001"),
+                "warning should mention the colliding predicate; was: " + warning);
+    }
+
+    @Test
+    void noPredicateCollision_noWarning() {
+        List<String> warnings = new ArrayList<>();
+        MergeContext ctx = new MergeContext("assets/minecraft/models/item/iron_sword.json", warnings::add);
+
+        JsonObject high = JsonMerger.parseJson("""
+                {
+                  "overrides": [
+                    { "predicate": { "custom_model_data": 1000001 }, "model": "mod_a:item/knife" }
+                  ]
+                }""");
+        JsonObject low = JsonMerger.parseJson("""
+                {
+                  "overrides": [
+                    { "predicate": { "custom_model_data": 1000002 }, "model": "mod_b:item/pistol" }
+                  ]
+                }""");
+
+        strategy.merge(high, low, ctx);
+
+        assertTrue(warnings.isEmpty(),
+                "distinct predicates must not emit collision warnings; got: " + warnings);
     }
 }

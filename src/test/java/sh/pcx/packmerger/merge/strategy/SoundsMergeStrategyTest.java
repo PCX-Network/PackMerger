@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SoundsMergeStrategyTest {
 
     private final SoundsMergeStrategy strategy = new SoundsMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/sounds.json", null);
 
     @Test
     void matches_soundsJson() {
@@ -32,7 +33,7 @@ class SoundsMergeStrategyTest {
                   }
                 }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         JsonArray sounds = merged.getAsJsonObject("entity.player.hurt").getAsJsonArray("sounds");
         assertEquals(3, sounds.size());
         assertEquals("high:hurt1", sounds.get(0).getAsString(), "high-priority sounds first");
@@ -45,7 +46,7 @@ class SoundsMergeStrategyTest {
         JsonObject low = JsonMerger.parseJson("""
                 { "b": { "sounds": ["b1"] } }""");
 
-        JsonObject merged = strategy.merge(high, low);
+        JsonObject merged = strategy.merge(high, low, CTX);
         assertTrue(merged.has("a"));
         assertTrue(merged.has("b"));
     }
@@ -67,7 +68,7 @@ class SoundsMergeStrategyTest {
                   }
                 }""");
 
-        JsonObject event = strategy.merge(high, low).getAsJsonObject("entity.player.hurt");
+        JsonObject event = strategy.merge(high, low, CTX).getAsJsonObject("entity.player.hurt");
         assertEquals("high.subtitle", event.get("subtitle").getAsString());
         assertEquals(2, event.getAsJsonArray("sounds").size());
     }

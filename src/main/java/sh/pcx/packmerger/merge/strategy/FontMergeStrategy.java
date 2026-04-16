@@ -27,7 +27,7 @@ public class FontMergeStrategy implements MergeStrategy {
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
         boolean highHas = high.has(PROVIDERS_KEY) && high.get(PROVIDERS_KEY).isJsonArray();
         boolean lowHas = low.has(PROVIDERS_KEY) && low.get(PROVIDERS_KEY).isJsonArray();
 

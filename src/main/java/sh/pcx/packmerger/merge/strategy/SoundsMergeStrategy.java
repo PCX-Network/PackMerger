@@ -27,7 +27,7 @@ public class SoundsMergeStrategy implements MergeStrategy {
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
         JsonObject result = low.deepCopy();
         for (Map.Entry<String, JsonElement> entry : high.entrySet()) {
             String soundEvent = entry.getKey();

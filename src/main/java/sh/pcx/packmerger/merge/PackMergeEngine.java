@@ -8,6 +8,8 @@ import sh.pcx.packmerger.merge.strategy.BlockstateMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.EquipmentMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.FontMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.ItemDefinitionMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.LanguageMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.MergeContext;
 import sh.pcx.packmerger.merge.strategy.MergeStrategy;
 import sh.pcx.packmerger.merge.strategy.ModelMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.PackMcmetaMergeStrategy;
@@ -93,7 +95,8 @@ public class PackMergeEngine {
                 new AtlasMergeStrategy(),         // atlases/**.json — sources concat (1.19.3+)
                 new ItemDefinitionMergeStrategy(),// items/**.json    — deep-merge (1.21.4+)
                 new EquipmentMergeStrategy(),     // equipment/**.json — deep-merge (1.21.2+)
-                new FontMergeStrategy()           // font/**.json — providers concat
+                new FontMergeStrategy(),          // font/**.json — providers concat
+                new LanguageMergeStrategy()       // lang/**.json — translation-key union
         );
     }
 
@@ -494,7 +497,7 @@ public class PackMergeEngine {
         JsonObject existing = mergedJson.get(path);
         if (existing != null) {
             // Already saw this file from a lower-priority pack — apply strategy merge
-            mergedJson.put(path, strategy.merge(newJson, existing));
+            mergedJson.put(path, strategy.merge(newJson, existing, new MergeContext(path, logger::warning)));
             logger.debug("JSON merged (" + strategy.name() + "): " + path);
         } else {
             // First occurrence — store as-is

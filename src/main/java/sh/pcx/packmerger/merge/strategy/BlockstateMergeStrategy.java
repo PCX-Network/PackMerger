@@ -34,7 +34,7 @@ public class BlockstateMergeStrategy implements MergeStrategy {
     }
 
     @Override
-    public JsonObject merge(JsonObject high, JsonObject low) {
+    public JsonObject merge(JsonObject high, JsonObject low, MergeContext ctx) {
         boolean highHasMultipart = high.has(MULTIPART_KEY) && high.get(MULTIPART_KEY).isJsonArray();
         boolean lowHasMultipart = low.has(MULTIPART_KEY) && low.get(MULTIPART_KEY).isJsonArray();
 

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FontMergeStrategyTest {
 
     private final FontMergeStrategy strategy = new FontMergeStrategy();
+    private static final MergeContext CTX = new MergeContext("assets/minecraft/font/default.json", null);
 
     @Test
     void matches_fontPath() {
@@ -31,7 +32,7 @@ class FontMergeStrategyTest {
                   ]
                 }""");
 
-        JsonArray providers = strategy.merge(high, low).getAsJsonArray("providers");
+        JsonArray providers = strategy.merge(high, low, CTX).getAsJsonArray("providers");
         assertEquals(2, providers.size());
         assertEquals("high:icon.png", providers.get(0).getAsJsonObject().get("file").getAsString());
     }
