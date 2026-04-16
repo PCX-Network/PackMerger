@@ -2,6 +2,11 @@ package sh.pcx.packmerger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import sh.pcx.packmerger.api.PackMergerApi;
+import sh.pcx.packmerger.api.events.PackMergeStartedEvent;
+import sh.pcx.packmerger.api.events.PackMergedEvent;
+import sh.pcx.packmerger.api.events.PackUploadFailedEvent;
+import sh.pcx.packmerger.api.events.PackUploadedEvent;
 import sh.pcx.packmerger.commands.PackMergerCommand;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.config.MessageManager;
@@ -42,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see UploadProvider
  * @see ConfigManager
  */
-public class PackMerger extends JavaPlugin {
+public class PackMerger extends JavaPlugin implements PackMergerApi {
 
     /** Manages loading and access to all plugin configuration values. */
     private ConfigManager configManager;
@@ -247,8 +252,16 @@ public class PackMerger extends JavaPlugin {
 
                 lastMergeTime = LocalDateTime.now();
 
+                // Fire PackMergeStartedEvent with the resolved pack order now that we
+                // know the merge produced output. (Can't fire earlier because the
+                // engine owns the order resolution.)
+                MergeProvenance provenance = mergeEngine.getLastProvenance();
+                if (provenance != null) {
+                    Bukkit.getPluginManager().callEvent(new PackMergeStartedEvent(provenance.packOrder()));
+                }
+
                 // Step 2: Validate the merged pack for structural issues
-                validator.validate(outputFile);
+                PackValidator.ValidationResult validationResult = validator.validate(outputFile);
 
                 // Step 3: Compute SHA-1 hash (required by Minecraft's resource pack protocol)
                 byte[] hash = computeSha1(outputFile);
@@ -262,12 +275,18 @@ public class PackMerger extends JavaPlugin {
 
                 logger.info("Merged pack SHA1: " + hashHex);
 
+                // Fire PackMergedEvent before upload so listeners can inspect the
+                // output and validation result before it's shipped.
+                Bukkit.getPluginManager().callEvent(new PackMergedEvent(outputFile, hash, provenance, validationResult));
+
                 // Step 4: Upload the merged pack if auto-upload is enabled
                 if (configManager.isAutoUpload()) {
                     try {
                         String url = uploadProvider.upload(outputFile, hashHex);
                         currentPackUrl = url;
                         logger.upload("Pack uploaded successfully: " + url);
+
+                        Bukkit.getPluginManager().callEvent(new PackUploadedEvent(url, hash));
 
                         if (sender != null) {
                             // Return to main thread for player messaging
@@ -283,6 +302,7 @@ public class PackMerger extends JavaPlugin {
                         }
                     } catch (Exception e) {
                         logger.error("Upload failed", e);
+                        Bukkit.getPluginManager().callEvent(new PackUploadFailedEvent(e));
                         if (sender != null) {
                             Bukkit.getScheduler().runTask(this, () ->
                                     sender.sendMessage(messageManager.getMessage("merge.upload-failed",
@@ -473,8 +493,27 @@ public class PackMerger extends JavaPlugin {
      *         if no merge has completed during this plugin's lifetime and no
      *         prior {@code .merge-provenance.json} was restored on startup
      */
+    @Override
     public MergeProvenance getLastMergeProvenance() {
         return mergeEngine == null ? null : mergeEngine.getLastProvenance();
+    }
+
+    // -------------------------------------------------------------------------
+    // PackMergerApi — stable third-party surface.
+    // See sh.pcx.packmerger.api.PackMergerApi for contract; most methods here
+    // are just thin delegates to existing accessors. Tagged @Experimental in
+    // the interface until 1.2.
+    // -------------------------------------------------------------------------
+
+    /** @return the stable third-party-facing API instance for this plugin */
+    public PackMergerApi getApi() { return this; }
+
+    @Override
+    public String getCurrentPackSha1Hex() { return currentPackHashHex; }
+
+    @Override
+    public CompletableFuture<Void> triggerMerge() {
+        return mergeAndUpload(null);
     }
 
     /**

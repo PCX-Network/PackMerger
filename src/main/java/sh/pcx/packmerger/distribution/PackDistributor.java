@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import sh.pcx.packmerger.PackMerger;
 import sh.pcx.packmerger.PluginLogger;
+import sh.pcx.packmerger.api.events.PackSentToPlayerEvent;
 import sh.pcx.packmerger.config.ConfigManager;
 
 import java.net.URI;
@@ -131,6 +132,7 @@ public class PackDistributor {
             }
 
             logger.debug("Sent resource pack to " + player.getName() + " (URL: " + url + ")");
+            Bukkit.getPluginManager().callEvent(new PackSentToPlayerEvent(player, url, hashHex, bypassCache));
         } catch (Exception e) {
             logger.warning("Failed to send resource pack to " + player.getName() + ": " + e.getMessage());
         }
