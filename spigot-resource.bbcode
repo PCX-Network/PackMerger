@@ -1,0 +1,262 @@
+[CENTER]
+[SIZE=6][B]PackMerger[/B][/SIZE]
+
+[SIZE=5]Merge, Host, and Distribute Multiple Resource Packs on Paper 1.21+[/SIZE]
+
+[URL='https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml'][IMG]https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml/badge.svg[/IMG][/URL]
+
+[IMG]https://img.shields.io/badge/Paper-1.21%2B-blue[/IMG] [IMG]https://img.shields.io/badge/Java-21%2B-orange[/IMG] [URL='https://github.com/PCX-Network/PackMerger/releases/latest'][IMG]https://img.shields.io/github/v/release/PCX-Network/PackMerger?color=green&label=latest&include_prereleases[/IMG][/URL] [URL='https://github.com/PCX-Network/PackMerger'][IMG]https://img.shields.io/github/stars/PCX-Network/PackMerger?style=flat&color=yellow[/IMG][/URL]
+[/CENTER]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Downloads ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[LIST]
+[*][URL='https://github.com/PCX-Network/PackMerger/releases/latest'][B]Latest Release[/B][/URL] - Download the most recent jar
+[*][URL='https://github.com/PCX-Network/PackMerger/releases'][B]All Releases[/B][/URL] - Previous versions and prerelease test builds
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Overview ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[B]PackMerger[/B] is a Paper plugin that merges multiple Minecraft resource packs into a single pack, hosts it via a built-in HTTP server or Polymath, and automatically distributes it to players on join. Designed for servers and networks that need to combine packs from different sources — UI overhauls, mechanics plugins like QualityArmory, custom model packs — into one seamless download.
+
+Instead of forcing players to manually install or merge packs, drop your packs into a folder, configure priority, and PackMerger handles the rest: intelligent JSON merging, SHA-1 hash tracking, per-server composition, and hot reload during development.
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Features ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[B][SIZE=4]Core Features[/SIZE][/B]
+[LIST]
+[*][B]Priority-Based Merging[/B] - Control which pack's files win on conflict via a simple ordered list
+[*][B]Format-Aware JSON Merging[/B] - Dedicated strategies for each Minecraft JSON format so nothing is silently lost
+[*][B]Built-In HTTP Host[/B] - Self-host the merged pack without third-party services
+[*][B]Polymath Support[/B] - Upload to a self-hosted Polymath instance if you already run one
+[*][B]Auto-Distribution on Join[/B] - Pack is sent to players automatically when they connect
+[*][B]Player Cache Tracking[/B] - Skips re-sending the pack if the player's SHA-1 already matches
+[*][B]Per-Server Composition[/B] - Multi-server networks can include/exclude packs per backend
+[*][B]Hot Reload[/B] - Watches the packs folder and auto-merges on changes with configurable debounce
+[*][B]Pack Validation[/B] - Checks pack.mcmeta structure, JSON syntax, and missing texture/model references after every merge
+[*][B]Custom Overrides[/B] - Drop a [FONT=Courier New]pack.mcmeta[/FONT] or [FONT=Courier New]pack.png[/FONT] into the packs folder to override the merged metadata/icon
+[*][B]Brigadier Commands[/B] - Full tab completion via Paper's modern command API
+[*][B]Configurable Messages[/B] - All player-facing text is externalized in [FONT=Courier New]messages_en.yml[/FONT]
+[*][B]Colored Console Logging[/B] - Readable category tags with configurable log levels
+[/LIST]
+
+[B][SIZE=4]v1.0.3 Features[/SIZE][/B]
+[LIST]
+[*][B]Path-Specific Merge Strategies[/B] - The JSON merger is now split into dedicated strategies per Minecraft format
+[*][B]QualityArmory Compatibility[/B] - Item-model [FONT=Courier New]overrides[/FONT] arrays from multiple packs now concat-dedup by predicate instead of being replaced, so CustomModelData entries survive
+[*][B]1.21.4 Item Definitions[/B] - [FONT=Courier New]assets/<ns>/items/[/FONT] files are now recognised and deep-merged
+[*][B]1.21.2+ Equipment Models[/B] - [FONT=Courier New]assets/<ns>/equipment/[/FONT] files are now recognised and merged per slot
+[*][B]1.19.3+ Texture Atlases[/B] - [FONT=Courier New]assets/<ns>/atlases/[/FONT] sources are concatenated instead of replaced
+[*][B]Font Providers[/B] - [FONT=Courier New]assets/<ns>/font/*.json[/FONT] providers arrays now concat so custom chat-icon packs compose cleanly
+[*][B]Comprehensive Test Suite[/B] - 28 unit tests covering every merge strategy, including a regression test for the QualityArmory scenario
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Requirements ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[LIST]
+[*][B]Paper 1.21+[/B] (built against Paper API 1.21.4)
+[*][B]Java 21+[/B]
+[*]Tested on Paper and Folia-compatible forks
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Installation ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[LIST=1]
+[*]Download the jar from the Downloads section above
+[*]Place it in your server's [FONT=Courier New]plugins/[/FONT] folder
+[*]Start the server — PackMerger generates [FONT=Courier New]config.yml[/FONT], [FONT=Courier New]messages_en.yml[/FONT], and creates the [FONT=Courier New]packs/[/FONT], [FONT=Courier New]output/[/FONT], and [FONT=Courier New]cache/[/FONT] directories under [FONT=Courier New]plugins/PackMerger/[/FONT]
+[*]Drop your resource pack [FONT=Courier New].zip[/FONT] files (or unzipped pack folders) into [FONT=Courier New]plugins/PackMerger/packs/[/FONT]
+[*]Edit [FONT=Courier New]plugins/PackMerger/config.yml[/FONT] to set priority order, upload provider, and distribution settings
+[*]Run [FONT=Courier New]/packmerger reload[/FONT] or restart the server
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Commands ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+Base command: [FONT=Courier New]/packmerger[/FONT] (alias: [FONT=Courier New]/pm[/FONT])
+
+[SPOILER="Click to view all commands"]
+[LIST]
+[*][FONT=Courier New]/pm reload[/FONT] - Reload config, re-initialize upload provider, and trigger a full merge-upload cycle
+[*][FONT=Courier New]/pm validate[/FONT] - Run validation on the current merged pack (JSON syntax, missing textures/models)
+[*][FONT=Courier New]/pm status[/FONT] - Show plugin status: server name, provider, last merge time, pack URL, SHA-1 hash, file size
+[*][FONT=Courier New]/pm apply[/FONT] - Force-send the current pack to all online players (bypasses cache)
+[*][FONT=Courier New]/pm apply <player>[/FONT] - Force-send the current pack to a specific player (supports selectors like [FONT=Courier New]@a[/FONT])
+[/LIST]
+[/SPOILER]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Permissions ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[LIST]
+[*][FONT=Courier New]packmerger.admin[/FONT] - Access to all [FONT=Courier New]/packmerger[/FONT] commands (default: op)
+[*][FONT=Courier New]packmerger.notify[/FONT] - Receive chat notifications when a new pack is available (default: true)
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Configuration ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[SPOILER="config.yml Example"]
+[CODE]# Identifies this server for per-server pack configs. Auto-detected if empty.
+server-name: ""
+
+# Merge order — first entry has highest priority.
+priority:
+  - "main-pack.zip"
+  - "ui-overhaul.zip"
+  - "custom-models.zip"
+
+# Per-server pack composition for multi-server networks.
+server-packs:
+  lobby:
+    additional:
+      - "lobby-textures.zip"
+    exclude: []
+  survival:
+    additional:
+      - "survival-textures.zip"
+    exclude:
+      - "ui-pack.zip"
+
+merge:
+  auto-merge-on-startup: true
+  optimization:
+    strip-junk-files: true       # Remove .DS_Store, Thumbs.db, __MACOSX, .git, etc.
+    compression-level: 6         # ZIP compression (0-9)
+    size-warning-mb: 100         # Warn if output exceeds this size (0 = disabled)
+  hot-reload:
+    enabled: true
+    debounce-seconds: 5
+
+upload:
+  auto-upload: true
+  provider: "self-host"          # "self-host" or "polymath"
+  self-host:
+    port: 8080
+    public-url: ""               # Auto-detected from server.properties
+    rate-limit: 50               # Max concurrent downloads (0 = unlimited)
+  polymath:
+    server: "https://your-polymath-host:5000"
+    secret: "your-custom-secret"
+    id: "my-server"
+
+distribution:
+  enabled: true
+  required: false                # Kick players who decline
+  prompt-message: ""             # Custom MiniMessage prompt (empty = Minecraft default)
+  use-add-resource-pack: false   # true = add alongside existing; false = replace
+  join-delay-ticks: 20
+  cache:
+    enabled: true                # Skip re-sending to players with matching SHA-1
+  on-new-pack:
+    action: "notify"             # "none", "notify", or "resend"
+    notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
+
+log-level: "info"                # "debug", "info", "warning", or "error"[/CODE]
+[/SPOILER]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ How It Works ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[B]Merge → Upload → Distribute Pipeline[/B]
+
+[LIST=1]
+[*][B]Discover[/B] - Scans the packs folder for [FONT=Courier New].zip[/FONT] files and directories containing [FONT=Courier New]pack.mcmeta[/FONT] or [FONT=Courier New]assets/[/FONT]
+[*][B]Order[/B] - Builds a merge order from the priority config, per-server include/exclude rules, and any unlisted packs (sorted alphabetically at lowest priority)
+[*][B]Merge[/B] - Iterates packs from lowest to highest priority and combines files in memory, applying format-specific merge strategies for JSON files
+[*][B]Override[/B] - Applies any custom [FONT=Courier New]pack.mcmeta[/FONT] / [FONT=Courier New]pack.png[/FONT] placed directly in the packs folder
+[*][B]Validate[/B] - Checks pack.mcmeta structure, JSON syntax, and missing texture/model references
+[*][B]Upload[/B] - Sends the merged zip to the configured provider (Polymath or self-host)
+[*][B]Distribute[/B] - If the SHA-1 changed, notifies online players per the [FONT=Courier New]on-new-pack[/FONT] action; new joiners receive it automatically (skipped if cached)
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ JSON Merge Strategies ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+PackMerger uses a different merge strategy for each Minecraft resource-pack JSON format, because naive deep-merge silently drops array data:
+
+[LIST]
+[*][B]Models[/B] ([FONT=Courier New]assets/<ns>/models/*.json[/FONT]) - Deep merge objects; [FONT=Courier New]overrides[/FONT] arrays concat and dedup by [FONT=Courier New]predicate[/FONT] (this is what makes QualityArmory CustomModelData merges survive)
+[*][B]Blockstates[/B] ([FONT=Courier New]assets/<ns>/blockstates/*.json[/FONT]) - Variants merge per selector key; [FONT=Courier New]multipart[/FONT] cases concat and dedup by [FONT=Courier New]when[/FONT] clause
+[*][B]Atlases[/B] ([FONT=Courier New]assets/<ns>/atlases/*.json[/FONT]) - [FONT=Courier New]sources[/FONT] arrays concat with structural dedup (1.19.3+)
+[*][B]Item Definitions[/B] ([FONT=Courier New]assets/<ns>/items/*.json[/FONT]) - Key-level deep merge (1.21.4+)
+[*][B]Equipment[/B] ([FONT=Courier New]assets/<ns>/equipment/*.json[/FONT]) - Key-level deep merge per slot (1.21.2+)
+[*][B]Sounds[/B] ([FONT=Courier New]assets/<ns>/sounds.json[/FONT]) - Per-event sound arrays concat so all variants coexist
+[*][B]Font[/B] ([FONT=Courier New]assets/<ns>/font/*.json[/FONT]) - [FONT=Courier New]providers[/FONT] arrays concat so custom glyph packs compose
+[*][B]Everything else[/B] (textures, audio, shaders) - Simple overwrite: higher priority wins
+[/LIST]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Upload Providers ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[B]Self-Host (Default)[/B]
+Runs a built-in HTTP server; players download from [FONT=Courier New]http://<your-ip>:<port>/pack[/FONT]. Make sure the port is open in your firewall. Includes a concurrent download rate limiter.
+
+[B]Polymath[/B]
+Uploads to a self-hosted [URL='https://github.com/oraxen/polymath']Polymath[/URL] instance (a lightweight Python server originally built for Oraxen). The public [FONT=Courier New]atlas.oraxen.com[/FONT] has been shut down — you must self-host your own Polymath if you choose this provider.
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Per-Server Packs ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+On a multi-server network, each backend can have its own merged pack by defining [FONT=Courier New]server-packs[/FONT] entries. Each server's [FONT=Courier New]additional[/FONT] packs are merged at lowest priority below the global list, and [FONT=Courier New]exclude[/FONT] packs are skipped entirely. The output file is named [FONT=Courier New]<server-name>-merged-pack.zip[/FONT] to avoid collisions.
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Troubleshooting ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[SPOILER="Merged pack not sending to players"]
+[LIST]
+[*]Check that [FONT=Courier New]distribution.enabled[/FONT] is [FONT=Courier New]true[/FONT]
+[*]Verify a merge has completed: run [FONT=Courier New]/pm status[/FONT] and check Pack URL is not "N/A"
+[*]Check the console for upload errors — if the upload failed, no URL is available
+[*]Ensure [FONT=Courier New]upload.auto-upload[/FONT] is [FONT=Courier New]true[/FONT]
+[/LIST]
+[/SPOILER]
+
+[SPOILER="Self-host port already in use"]
+[LIST]
+[*]Another process is using the configured port (default 8080)
+[*]Change [FONT=Courier New]upload.self-host.port[/FONT] to an unused port
+[*]Use [FONT=Courier New]netstat -tlnp | grep 8080[/FONT] (Linux) or [FONT=Courier New]netstat -an | findstr 8080[/FONT] (Windows) to find the conflicting process
+[/LIST]
+[/SPOILER]
+
+[SPOILER="Pack validation warnings"]
+[LIST]
+[*][B]"Invalid JSON"[/B] - a JSON file has syntax errors; open it in a validator
+[*][B]"Missing texture"[/B] - a model references a texture that doesn't exist in the merged pack
+[*][B]"Missing model"[/B] - a blockstate references a model that doesn't exist
+[*]Validation warnings don't prevent the pack from sending — they flag potential visual issues
+[/LIST]
+[/SPOILER]
+
+[SPOILER="Players re-downloading every join (cache issue)"]
+[LIST]
+[*]Ensure [FONT=Courier New]distribution.cache.enabled[/FONT] is [FONT=Courier New]true[/FONT]
+[*]The cache only updates after the client reports [FONT=Courier New]SUCCESSFULLY_LOADED[/FONT]
+[*]If using [FONT=Courier New]use-add-resource-pack: true[/FONT], Minecraft may cache differently than replace mode
+[*]Delete [FONT=Courier New]plugins/PackMerger/cache/player-cache.json[/FONT] to reset
+[*]Set [FONT=Courier New]log-level: "debug"[/FONT] to see per-player send/skip logs
+[/LIST]
+[/SPOILER]
+
+[SPOILER="Pack too large / download timeouts"]
+[LIST]
+[*]Check output size with [FONT=Courier New]/pm status[/FONT]
+[*]Increase [FONT=Courier New]merge.optimization.compression-level[/FONT] (up to 9)
+[*]Remove unnecessary packs or textures
+[*]For very large packs (200+ MB) consider a CDN or Polymath for faster downloads
+[/LIST]
+[/SPOILER]
+
+[SPOILER="QualityArmory / CustomModelData missing after merge"]
+As of v1.0.3 this is fixed — item-model [FONT=Courier New]overrides[/FONT] arrays from multiple packs are now concat-deduped by predicate. If you're still seeing missing textures:
+[LIST]
+[*]Update to v1.0.3 or newer
+[*]Confirm the QualityArmory pack zip actually contains its [FONT=Courier New]assets/qualityarmory/[/FONT] namespace — unzip the merged output and check
+[*]Run [FONT=Courier New]/pm validate[/FONT] to surface missing-model / missing-texture references
+[*]On older versions, workaround: place QualityArmory as highest priority, or avoid letting other packs redefine the same [FONT=Courier New]assets/minecraft/models/item/*.json[/FONT] files
+[/LIST]
+[/SPOILER]
+
+[CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Support ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
+
+[LIST]
+[*][URL='https://github.com/PCX-Network/PackMerger/issues']GitHub Issues[/URL] - Bug reports and feature requests
+[*][URL='https://github.com/PCX-Network/PackMerger']Source Code[/URL] - Open source on GitHub
+[/LIST]
+
+[CENTER]
+[SIZE=3][COLOR=#888888]Made by PCX Network | Licensed under MIT[/COLOR][/SIZE]
+[/CENTER]
