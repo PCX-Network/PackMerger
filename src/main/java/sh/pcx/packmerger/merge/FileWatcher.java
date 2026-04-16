@@ -117,6 +117,11 @@ public class FileWatcher {
                         Path changed = (Path) event.context();
                         String fileName = changed.toString();
 
+                        // Skip dot-prefixed entries (includes .remote-cache/ which
+                        // PackMerger manages itself — we don't want its downloads
+                        // to trigger cascading merges)
+                        if (fileName.startsWith(".")) continue;
+
                         // Only consider pack-related file changes:
                         // - pack.mcmeta and pack.png (custom overrides)
                         // - .zip files (pack archives)

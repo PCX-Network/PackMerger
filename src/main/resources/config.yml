@@ -39,6 +39,52 @@ priority:
   - "custom-models.zip"
 
 # =============================================================================
+# Remote Pack Sources (optional)
+# =============================================================================
+
+# Remote packs are downloaded from a URL into packs/.remote-cache/<alias>.zip
+# and appear in the merge pipeline under their alias. Reference them in
+# priority: by alias (without .zip) — e.g. "- quality-armory" for a remote
+# pack declared as remote-packs: { quality-armory: ... }.
+#
+# Refresh policy controls when the plugin re-downloads a pack:
+#   "on-startup" — fetch when the plugin enables
+#   "on-reload"  — fetch on startup AND on /pm reload
+#   "manual"     — only fetch on /pm fetch <alias>
+#
+# HTTP caching (ETag / Last-Modified) is honored automatically; unchanged
+# origins return 304 and the cached copy is reused.
+#
+# If a fetch fails but a cached copy exists, the cached copy is used and a
+# warning is logged. If both fail, the pack is skipped with an error.
+#
+# SECURITY: PackMerger does not validate the pack's contents beyond normal
+# merge validation. You're trusting whatever is at the URL. Pin to a
+# specific release tag or checksum in the URL when possible.
+#
+# Environment-variable substitution is supported in url / auth fields —
+# write "${VAR_NAME}" to pull from the server process's environment rather
+# than committing secrets to config.yml.
+#
+# Default: remote-packs: {} (feature not in use)
+remote-packs:
+#  quality-armory:
+#    url: "https://github.com/user/repo/releases/latest/download/pack.zip"
+#    refresh: "on-startup"
+#    # auth block is optional
+#    auth:
+#      type: "bearer"                 # "none", "bearer", or "basic"
+#      token: "${GITHUB_TOKEN}"       # env-var substitution
+#  internal-ui:
+#    url: "https://artifacts.internal.example.com/packs/ui-latest.zip"
+#    refresh: "on-reload"
+#    allow-http: false                # set true only for internal stores
+#    auth:
+#      type: "basic"
+#      username: "${ARTIFACT_USER}"
+#      password: "${ARTIFACT_PW}"
+
+# =============================================================================
 # Profiles (optional)
 # =============================================================================
 

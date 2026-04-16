@@ -3,6 +3,7 @@ package sh.pcx.packmerger.config;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.remote.RemoteSpec;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,6 +60,13 @@ public class ConfigManager {
 
     /** All defined profiles, keyed by profile name. Empty when profiles aren't in use. */
     private final Map<String, ProfileConfig> profiles = new LinkedHashMap<>();
+
+    // -------------------------------------------------------------------------
+    // Remote packs
+    // -------------------------------------------------------------------------
+
+    /** Remote pack sources — downloaded into {@code packs/.remote-cache/}. */
+    private final List<RemoteSpec> remotePacks = new ArrayList<>();
 
     // -------------------------------------------------------------------------
     // Merge settings
@@ -285,6 +293,37 @@ public class ConfigManager {
         notifyMessage = config.getString("distribution.on-new-pack.notify-message",
                 "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>");
 
+        // Remote packs — optional
+        remotePacks.clear();
+        ConfigurationSection remoteSection = config.getConfigurationSection("remote-packs");
+        if (remoteSection != null) {
+            for (String alias : remoteSection.getKeys(false)) {
+                ConfigurationSection s = remoteSection.getConfigurationSection(alias);
+                if (s == null) continue;
+                String url = s.getString("url", "");
+                if (url.isEmpty()) {
+                    plugin.getLogger().log(Level.WARNING,
+                            "remote-pack '" + alias + "' has no url — skipping");
+                    continue;
+                }
+                String refresh = s.getString("refresh", "on-startup");
+                boolean allowHttp = s.getBoolean("allow-http", false);
+
+                RemoteSpec.AuthSpec auth = RemoteSpec.AuthSpec.NONE;
+                ConfigurationSection authSection = s.getConfigurationSection("auth");
+                if (authSection != null) {
+                    String type = authSection.getString("type", "none");
+                    auth = new RemoteSpec.AuthSpec(
+                            type,
+                            authSection.getString("token"),
+                            authSection.getString("username"),
+                            authSection.getString("password"));
+                }
+
+                remotePacks.add(new RemoteSpec(alias, url, refresh, auth, allowHttp));
+            }
+        }
+
         // Validation
         packFormatCheckMode = config.getString("validation.pack-format-check", "warn");
         rollbackOnErrors = config.getBoolean("validation.rollback-on-errors", true);
@@ -367,6 +406,13 @@ public class ConfigManager {
 
     /** @return all defined profiles, keyed by name. Empty if the config has no {@code profiles:} section. */
     public Map<String, ProfileConfig> getProfiles() { return profiles; }
+
+    // -------------------------------------------------------------------------
+    // Getters — Remote packs
+    // -------------------------------------------------------------------------
+
+    /** @return declared remote pack sources; empty if the config has no {@code remote-packs:} section */
+    public List<RemoteSpec> getRemotePacks() { return remotePacks; }
 
     // -------------------------------------------------------------------------
     // Getters — Merge

@@ -16,6 +16,9 @@ import sh.pcx.packmerger.PackMerger;
 import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.merge.MergeProvenance;
 import sh.pcx.packmerger.merge.PackValidator;
+import sh.pcx.packmerger.remote.FetchResult;
+import sh.pcx.packmerger.remote.RemotePackManager;
+import sh.pcx.packmerger.remote.RemoteSpec;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -101,6 +104,10 @@ public class PackMergerCommand {
                                             .executes(this::handleInspectExport))
                                     .then(Commands.argument("pack", StringArgumentType.string())
                                             .executes(this::handleInspectPack)))
+                            .then(Commands.literal("fetch")
+                                    .executes(this::handleFetchAll)
+                                    .then(Commands.argument("alias", StringArgumentType.string())
+                                            .executes(this::handleFetchOne)))
                             .then(Commands.literal("profile")
                                     .executes(this::handleProfileList)
                                     .then(Commands.literal("list")
@@ -356,6 +363,67 @@ public class PackMergerCommand {
         MergeProvenance prov = plugin.getLastMergeProvenance();
         sendAll(sender, InspectRenderer.packDetail(prov, packName));
         return 1;
+    }
+
+    // ---- /pm fetch ------------------------------------------------------
+
+    /** {@code /pm fetch} — refetch every remote pack, ignoring refresh policy. */
+    private int handleFetchAll(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        RemotePackManager rpm = plugin.getRemotePackManager();
+        List<RemoteSpec> specs = plugin.getConfigManager().getRemotePacks();
+        if (specs.isEmpty()) {
+            sender.sendMessage(MINI.deserialize("<gray>No remote packs configured.</gray>"));
+            return 1;
+        }
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            List<FetchResult> results = rpm.fetchAll(specs, RemotePackManager.Trigger.MANUAL);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (FetchResult r : results) {
+                    sender.sendMessage(MINI.deserialize(fetchLine(r)));
+                }
+                sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed packs…</gray>"));
+                plugin.mergeAndUpload(sender);
+            });
+        });
+        return 1;
+    }
+
+    /** {@code /pm fetch <alias>} — refetch one named remote pack. */
+    private int handleFetchOne(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String alias = StringArgumentType.getString(ctx, "alias");
+        RemoteSpec spec = plugin.getConfigManager().getRemotePacks().stream()
+                .filter(s -> s.alias().equals(alias))
+                .findFirst()
+                .orElse(null);
+        if (spec == null) {
+            sender.sendMessage(MINI.deserialize("<red>Unknown remote pack alias: <white>"
+                    + alias + "</white></red>"));
+            return 0;
+        }
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            FetchResult result = plugin.getRemotePackManager().fetch(spec);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                sender.sendMessage(MINI.deserialize(fetchLine(result)));
+                sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed pack…</gray>"));
+                plugin.mergeAndUpload(sender);
+            });
+        });
+        return 1;
+    }
+
+    private static String fetchLine(FetchResult r) {
+        return switch (r.status()) {
+            case FETCHED -> "<green>✓</green> <white>" + r.alias() + "</white> <gray>— fetched ("
+                    + r.detail() + ")</gray>";
+            case NOT_MODIFIED -> "<green>✓</green> <white>" + r.alias() + "</white> <gray>— cached (304)</gray>";
+            case ERROR_USING_CACHE -> "<yellow>!</yellow> <white>" + r.alias()
+                    + "</white> <gray>— fetch failed; using cache (" + r.detail() + ")</gray>";
+            case ERROR_NO_CACHE -> "<red>✗</red> <white>" + r.alias()
+                    + "</white> <gray>— fetch failed, no cache (" + r.detail() + ")</gray>";
+            case SKIPPED_BY_POLICY -> "<gray>· " + r.alias() + " — skipped (" + r.detail() + ")</gray>";
+        };
     }
 
     // ---- /pm profile ----------------------------------------------------

@@ -18,6 +18,8 @@ import sh.pcx.packmerger.merge.FileWatcher;
 import sh.pcx.packmerger.merge.MergeProvenance;
 import sh.pcx.packmerger.merge.PackMergeEngine;
 import sh.pcx.packmerger.merge.PackValidator;
+import sh.pcx.packmerger.remote.FetchResult;
+import sh.pcx.packmerger.remote.RemotePackManager;
 import sh.pcx.packmerger.upload.PolymathUploadProvider;
 import sh.pcx.packmerger.upload.SelfHostProvider;
 import sh.pcx.packmerger.upload.UploadProvider;
@@ -30,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -80,6 +83,9 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
     /** Tracks which pack version each player has downloaded to avoid redundant re-sends. */
     private PlayerCacheManager cacheManager;
 
+    /** Fetches remote pack sources into {@code packs/.remote-cache/}. */
+    private RemotePackManager remotePackManager;
+
     /** The public download URL of the most recently uploaded merged pack, or {@code null} if no merge has completed. */
     private String currentPackUrl;
 
@@ -122,6 +128,17 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         cacheManager = new PlayerCacheManager(this);
         cacheManager.load();
         distributor = new PackDistributor(this);
+        remotePackManager = new RemotePackManager(this);
+
+        // Fetch on-startup remote packs before the first merge so they're
+        // available from discovery. Runs async so onEnable doesn't stall on
+        // network I/O — the auto-merge below waits on the fetch future.
+        CompletableFuture<Void> remoteFetch = CompletableFuture.runAsync(() -> {
+            if (configManager.getRemotePacks().isEmpty()) return;
+            List<FetchResult> results = remotePackManager.fetchAll(
+                    configManager.getRemotePacks(), RemotePackManager.Trigger.STARTUP);
+            logRemoteFetchResults(results);
+        });
 
         // Restore last merge provenance from disk if present so /pm inspect and
         // the plugin API have data immediately on startup, before any merge runs
@@ -142,9 +159,10 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
 
         logger.info("PackMerger enabled!");
 
-        // Kick off the initial merge if configured to do so
+        // Kick off the initial merge if configured to do so, but wait for the
+        // remote-pack fetch to finish so the first merge sees the cached zips.
         if (configManager.isAutoMergeOnStartup()) {
-            mergeAndUpload(null);
+            remoteFetch.thenRun(() -> mergeAndUpload(null));
         }
 
         // Start watching for file changes in the packs folder (hot-reload)
@@ -420,6 +438,10 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
      * Performs a full reload: re-reads the config, re-initializes the upload provider,
      * and restarts the file watcher. Called by the {@code /packmerger reload} command.
      *
+     * <p>Also re-fetches any remote packs whose {@code refresh} policy is
+     * {@code on-reload} (or {@code on-startup}) so a reload picks up origin
+     * updates without a full plugin restart.</p>
+     *
      * <p>Does not automatically trigger a merge — the calling command handles that separately.</p>
      */
     public void reload() {
@@ -429,6 +451,31 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         initUploadProvider();
         stopFileWatcher();
         startFileWatcher();
+
+        if (remotePackManager != null && !configManager.getRemotePacks().isEmpty()) {
+            List<FetchResult> results = remotePackManager.fetchAll(
+                    configManager.getRemotePacks(), RemotePackManager.Trigger.RELOAD);
+            logRemoteFetchResults(results);
+        }
+    }
+
+    /** @return the remote pack manager, or {@code null} before onEnable completes */
+    public RemotePackManager getRemotePackManager() { return remotePackManager; }
+
+    /** Shared helper to log a batch of fetch outcomes at the right severity. */
+    private void logRemoteFetchResults(List<FetchResult> results) {
+        for (FetchResult r : results) {
+            switch (r.status()) {
+                case FETCHED -> logger.remote(r.alias() + ": fetched (" + r.detail() + ")");
+                case NOT_MODIFIED -> logger.remote(r.alias() + ": cached (304)");
+                case ERROR_USING_CACHE -> logger.warning("[remote] " + r.alias()
+                        + ": fetch failed — using cached copy (" + r.detail() + ")");
+                case ERROR_NO_CACHE -> logger.error("[remote] " + r.alias()
+                        + ": fetch failed and no cache available (" + r.detail() + ")");
+                case SKIPPED_BY_POLICY -> logger.debug("[remote] " + r.alias()
+                        + ": skipped (" + r.detail() + ")");
+            }
+        }
     }
 
     /**

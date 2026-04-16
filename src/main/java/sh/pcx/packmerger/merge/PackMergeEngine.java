@@ -177,7 +177,7 @@ public class PackMergeEngine {
         // precedence in JSON deep merge operations
         for (int i = orderedPacks.size() - 1; i >= 0; i--) {
             String packName = orderedPacks.get(i);
-            File packFile = new File(packsFolder, packName);
+            File packFile = resolvePackFile(packsFolder, packName);
 
             if (!packFile.exists()) {
                 logger.warning("Pack not found: " + packName + " (skipping)");
@@ -188,7 +188,7 @@ public class PackMergeEngine {
                 int filesBefore = mergedFiles.size() + mergedJson.size();
                 if (packFile.isDirectory()) {
                     mergeDirectory(packFile, packFile.toPath(), mergedFiles, mergedJson, config.isStripJunkFiles(), packName, provenance);
-                } else if (packName.endsWith(".zip")) {
+                } else if (packFile.getName().endsWith(".zip")) {
                     mergeZip(packFile, mergedFiles, mergedJson, config.isStripJunkFiles(), packName, provenance);
                 }
                 int filesAdded = (mergedFiles.size() + mergedJson.size()) - filesBefore;
@@ -327,7 +327,7 @@ public class PackMergeEngine {
             String name = file.getName();
             // Skip custom override files — these are applied after the merge
             if (name.equals("pack.mcmeta") || name.equals("pack.png")) continue;
-            // Skip hidden/dot files
+            // Skip hidden/dot files (includes .remote-cache/ which is handled below)
             if (name.startsWith(".")) continue;
 
             if (file.isDirectory()) {
@@ -339,7 +339,36 @@ public class PackMergeEngine {
                 packs.add(name);
             }
         }
+
+        // Also enumerate remote-cache packs by alias (filename without .zip).
+        // Admins reference these in priority: as just "<alias>".
+        File remoteCache = new File(packsFolder, ".remote-cache");
+        if (remoteCache.isDirectory()) {
+            File[] cached = remoteCache.listFiles();
+            if (cached != null) {
+                for (File f : cached) {
+                    String n = f.getName();
+                    if (!n.endsWith(".zip")) continue;
+                    packs.add(n.substring(0, n.length() - ".zip".length()));
+                }
+            }
+        }
         return packs;
+    }
+
+    /**
+     * Resolves a pack name (as referenced in priority lists) to its actual
+     * file location. Local packs live directly in {@code packs/} and their
+     * name is the filename; remote-cache packs live in
+     * {@code packs/.remote-cache/&lt;alias&gt;.zip} and their name is the alias
+     * without the extension.
+     */
+    private File resolvePackFile(File packsFolder, String packName) {
+        File direct = new File(packsFolder, packName);
+        if (direct.exists()) return direct;
+        File remoteCached = new File(new File(packsFolder, ".remote-cache"), packName + ".zip");
+        if (remoteCached.exists()) return remoteCached;
+        return direct;  // return the direct path so the "not found" warning still has a sensible message
     }
 
     /**
