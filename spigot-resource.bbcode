@@ -40,6 +40,19 @@ Instead of forcing players to manually install or merge packs, drop your packs i
 [*][B]Colored Console Logging[/B] - Readable category tags with configurable log levels
 [/LIST]
 
+[B][SIZE=4]v1.1.0 Features[/SIZE][/B]
+[LIST]
+[*][B]Merge Provenance + /pm inspect[/B] - For every output file PackMerger now records which pack won and every contributor. Surface via [FONT=Courier New]/pm inspect[/FONT] (summary, per-pack, collisions, exportable report) and the plugin API. Turns "why is this texture missing?" into a one-command answer.
+[*][B]Validation Rollback[/B] - If a new merge produces validation errors, PackMerger keeps the previous merged pack live for players and fires [FONT=Courier New]PackValidationFailedEvent[/FONT] instead of shipping broken output. Configurable via [FONT=Courier New]validation.rollback-on-errors[/FONT].
+[*][B]pack_format Guardrail[/B] - Warns (or errors, your choice) when the merged pack's [FONT=Courier New]pack_format[/FONT] doesn't match the running server's Minecraft version. Honors [FONT=Courier New]supported_formats[/FONT] ranges.
+[*][B]Orphan Asset Detection[/B] - Finds unreferenced textures and sounds in the merged output so you can trim bloated packs. Top-N-by-size listed in validation; full list via [FONT=Courier New]/pm inspect export[/FONT].
+[*][B]In-game Priority Reordering[/B] - [FONT=Courier New]/pm priority up|down|top|bottom|set <pack>[/FONT] edits config.yml and re-merges live — no more YAML + reload dance.
+[*][B]Profiles / Presets[/B] - Flip whole pack compositions atomically via [FONT=Courier New]/pm profile switch <name>[/FONT] for seasonal events or A/B tests. Backwards-compatible with pre-1.1.0 configs.
+[*][B]Remote Pack Sources[/B] - Declare pack URLs in config and PackMerger downloads + caches them with ETag / Last-Modified. Supports bearer + basic auth with [FONT=Courier New]${ENV_VAR}[/FONT] substitution so secrets stay out of config.yml. New [FONT=Courier New]/pm fetch[/FONT] command.
+[*][B]S3 / R2 / Backblaze Upload[/B] - New [FONT=Courier New]provider: "s3"[/FONT] option uploads to any S3-compatible store: AWS S3, Cloudflare R2, Backblaze B2. Content-addressed keys + retention policy, or stable keys; public-read or presigned (private) ACLs.
+[*][B]Plugin API + Bukkit Events[/B] - [FONT=Courier New]PackMergedEvent[/FONT], [FONT=Courier New]PackUploadedEvent[/FONT], [FONT=Courier New]PackValidationFailedEvent[/FONT], etc. Other plugins can react without log-scraping. [FONT=Courier New]@Experimental[/FONT] in 1.1.0 — stable in 1.2.
+[/LIST]
+
 [B][SIZE=4]v1.0.5 Features[/SIZE][/B]
 [LIST]
 [*][B]Language File Merging[/B] - [FONT=Courier New]assets/<ns>/lang/*.json[/FONT] translation files now key-union instead of last-write-wins, so stacking multiple plugins that localize messages into the same [FONT=Courier New]en_us.json[/FONT] no longer silently drops one side's translations
@@ -88,11 +101,20 @@ Base command: [FONT=Courier New]/packmerger[/FONT] (alias: [FONT=Courier New]/pm
 
 [SPOILER="Click to view all commands"]
 [LIST]
-[*][FONT=Courier New]/pm reload[/FONT] - Reload config, re-initialize upload provider, and trigger a full merge-upload cycle
-[*][FONT=Courier New]/pm validate[/FONT] - Run validation on the current merged pack (JSON syntax, missing textures/models)
-[*][FONT=Courier New]/pm status[/FONT] - Show plugin status: server name, provider, last merge time, pack URL, SHA-1 hash, file size
-[*][FONT=Courier New]/pm apply[/FONT] - Force-send the current pack to all online players (bypasses cache)
-[*][FONT=Courier New]/pm apply <player>[/FONT] - Force-send the current pack to a specific player (supports selectors like [FONT=Courier New]@a[/FONT])
+[*][FONT=Courier New]/pm reload[/FONT] - Reload config, re-init upload provider, re-fetch on-reload remote packs, trigger a merge
+[*][FONT=Courier New]/pm validate[/FONT] - Run validation on the current merged pack (JSON, missing refs, orphans, pack_format drift)
+[*][FONT=Courier New]/pm status[/FONT] - Server name, provider, last merge time, pack URL, SHA-1, file size, discovered packs
+[*][FONT=Courier New]/pm apply [player][/FONT] - Force-send the current pack to all online players or one (supports [FONT=Courier New]@a[/FONT] selectors)
+[*][FONT=Courier New]/pm inspect[/FONT] - Summary of the last merge (1.1.0+)
+[*][FONT=Courier New]/pm inspect <pack>[/FONT] - Per-pack detail: files won + files contributed but lost on (1.1.0+)
+[*][FONT=Courier New]/pm inspect collisions[/FONT] - List every output path touched by 2+ packs (1.1.0+)
+[*][FONT=Courier New]/pm inspect export[/FONT] - Write the full merge report to output/last-merge-report.txt (1.1.0+)
+[*][FONT=Courier New]/pm priority list[/FONT] - Show current priority order (1.1.0+)
+[*][FONT=Courier New]/pm priority up|down|top|bottom <pack>[/FONT] - Move a pack in priority (1.1.0+)
+[*][FONT=Courier New]/pm priority set <pack> <n>[/FONT] - Place at absolute position (1.1.0+)
+[*][FONT=Courier New]/pm profile [list][/FONT] - List defined profiles (1.1.0+)
+[*][FONT=Courier New]/pm profile switch <name>[/FONT] - Activate a profile and re-merge (1.1.0+)
+[*][FONT=Courier New]/pm fetch [alias][/FONT] - Re-download remote packs, all or one (1.1.0+)
 [/LIST]
 [/SPOILER]
 
@@ -203,6 +225,9 @@ Runs a built-in HTTP server; players download from [FONT=Courier New]http://<you
 [B]Polymath[/B]
 Uploads to a self-hosted [URL='https://github.com/oraxen/polymath']Polymath[/URL] instance (a lightweight Python server originally built for Oraxen). The public [FONT=Courier New]atlas.oraxen.com[/FONT] has been shut down — you must self-host your own Polymath if you choose this provider.
 
+[B]S3 / R2 / Backblaze B2 (v1.1.0+)[/B]
+Upload to any S3-compatible object store. One config works for AWS S3, Cloudflare R2, and Backblaze B2; only the endpoint URL changes. Content-addressed keys with retention keep storage bounded while letting client HTTP caches work cleanly. Private-bucket setups get short-lived presigned URLs automatically. Credentials use [FONT=Courier New]${ENV_VAR}[/FONT] substitution so secrets stay out of config.yml.
+
 [CENTER][SIZE=5][COLOR=#5e4fa2][B]━━━━━━━━━━ Per-Server Packs ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
 
 On a multi-server network, each backend can have its own merged pack by defining [FONT=Courier New]server-packs[/FONT] entries. Each server's [FONT=Courier New]additional[/FONT] packs are merged at lowest priority below the global list, and [FONT=Courier New]exclude[/FONT] packs are skipped entirely. The output file is named [FONT=Courier New]<server-name>-merged-pack.zip[/FONT] to avoid collisions.
@@ -261,6 +286,15 @@ As of v1.0.3 this is fixed — item-model [FONT=Courier New]overrides[/FONT] arr
 [*]Confirm the QualityArmory pack zip actually contains its [FONT=Courier New]assets/qualityarmory/[/FONT] namespace — unzip the merged output and check
 [*]Run [FONT=Courier New]/pm validate[/FONT] to surface missing-model / missing-texture references
 [*]On older versions, workaround: place QualityArmory as highest priority, or avoid letting other packs redefine the same [FONT=Courier New]assets/minecraft/models/item/*.json[/FONT] files
+[/LIST]
+[/SPOILER]
+
+[SPOILER="Players still see the old pack after a merge — was there a rollback? (v1.1.0+)"]
+Since v1.1.0, validation errors trigger rollback by default: the new merge is discarded and the previous pack stays live. Check the console for [FONT=Courier New][VALIDATION][/FONT] entries mentioning rollback, or watch for [FONT=Courier New]PackValidationFailedEvent[/FONT] if you have a custom listener.
+[LIST]
+[*]Fix the validation errors in the offending pack and [FONT=Courier New]/pm reload[/FONT]
+[*]To ship despite errors (not recommended), set [FONT=Courier New]validation.rollback-on-errors: false[/FONT]
+[*]First-run case: if no previous pack exists, the broken pack ships anyway so the initial merge doesn't stall forever
 [/LIST]
 [/SPOILER]
 

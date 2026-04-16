@@ -6,14 +6,22 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 
 - **Priority-based merging** — control which pack's files take precedence when packs overlap
 - **Format-aware JSON merging** — dedicated strategies per Minecraft JSON format (models, blockstates, atlases, items, equipment, sounds, font, language, `pack.mcmeta`) so array data from multiple packs is preserved instead of silently overwritten
+- **Merge provenance + `/pm inspect`** — for every output file, record which pack won and every contributor. Surface via `/pm inspect` (summary, per-pack detail, collisions, exportable report) and the plugin API
+- **Validation rollback** — if a new merge trips validation errors, keep the previous pack live instead of shipping broken output to players
+- **`pack_format` guardrail** — warn or error when the merged pack targets a Minecraft version different from the running server's
+- **Orphan asset detection** — surface unreferenced textures and sounds so you can trim bloated merged packs
 - **CustomModelData collision warnings** — logs a warning when two packs both claim the same `custom_model_data` predicate so operators get a diagnostic trail instead of a silent drop
-- **Multiple upload providers** — Polymath server or built-in HTTP server
+- **In-game priority reordering** — `/pm priority up|down|top|bottom|set <pack>` edits `config.yml` and re-merges live
+- **Profiles / presets** — swap whole pack compositions atomically for seasonal events or A/B tests via `/pm profile switch <name>`
+- **Remote pack sources** — declare HTTPS URLs in config; PackMerger downloads and caches into `packs/.remote-cache/`, honors ETag / Last-Modified, supports bearer + basic auth with env-var substitution
+- **Multiple upload providers** — self-hosted HTTP, Polymath, or any S3-compatible object store (AWS S3 / Cloudflare R2 / Backblaze B2) with content-addressed keys, retention, and optional presigned URLs
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
 - **Pack validation** — checks JSON syntax, pack.mcmeta structure, and missing texture/model references after every merge
 - **Custom overrides** — drop a `pack.mcmeta` or `pack.png` in the packs folder to override the merged pack's metadata and icon
 - **Concurrent download limiting** — built-in rate limiter for the self-host HTTP server
+- **Plugin API + Bukkit events** — `PackMergedEvent`, `PackUploadedEvent`, `PackValidationFailedEvent`, etc. so other plugins can react without log-scraping
 - **Brigadier commands** — full tab completion via Paper's command API
 
 ## Requirements
@@ -25,7 +33,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 ## Installation
 
 1. Build the plugin (see [Building](#building)) or download the release jar
-2. Place `PackMerger-1.0.5.jar` into your server's `plugins/` folder
+2. Place `PackMerger-1.1.0.jar` into your server's `plugins/` folder
 3. Start the server — the plugin generates `config.yml` and creates the `packs/`, `output/`, and `cache/` directories under `plugins/PackMerger/`
 4. Place your resource pack `.zip` files or unzipped pack folders into `plugins/PackMerger/packs/`
 5. Edit `plugins/PackMerger/config.yml` to configure priority order, upload provider, and distribution settings
@@ -40,7 +48,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 The shaded jar (with all dependencies bundled) is output to:
 
 ```
-build/libs/PackMerger-1.0.5.jar
+build/libs/PackMerger-1.1.0.jar
 ```
 
 Requires Java 21 to compile.
@@ -163,13 +171,23 @@ Enables verbose logging for troubleshooting. Logs every file merge, pack send, v
 
 All commands require `packmerger.admin` permission (default: op).
 
-| Command | Alias | Description |
-|---|---|---|
-| `/packmerger reload` | `/pm reload` | Reload config, re-initialize upload provider, and trigger a full merge-upload cycle |
-| `/packmerger validate` | `/pm validate` | Run validation on the current merged pack (checks JSON syntax, missing textures/models) |
-| `/packmerger status` | `/pm status` | Show plugin status: server name, provider, last merge time, pack URL, SHA-1 hash, file size |
-| `/packmerger apply` | `/pm apply` | Force-send the current pack to all online players (bypasses cache) |
-| `/packmerger apply <player>` | `/pm apply <player>` | Force-send the current pack to a specific player (supports selectors like `@a`) |
+| Command | Description |
+|---|---|
+| `/pm reload` | Reload config, re-init upload provider, re-fetch on-reload remote packs, and trigger a merge |
+| `/pm validate` | Run validation on the current merged pack (JSON, missing textures/models, orphan assets, pack_format drift) |
+| `/pm status` | Server name, provider, last merge time, pack URL, SHA-1, file size, discovered packs |
+| `/pm apply [player]` | Force-send the current pack to all online players, or just one (supports `@a` selectors) |
+| `/pm inspect` | Summary of the last merge: pack order, per-pack file counts, collision count |
+| `/pm inspect <pack>` | What this pack won + files it contributed to but lost on |
+| `/pm inspect collisions` | List every output path touched by 2+ packs |
+| `/pm inspect export` | Write the full merge report to `output/last-merge-report.txt` |
+| `/pm priority list` | Show current priority order with 1-based indices |
+| `/pm priority up\|down\|top\|bottom <pack>` | Move a pack one step / all the way in priority |
+| `/pm priority set <pack> <n>` | Place a pack at absolute 1-based position |
+| `/pm profile` / `/pm profile list` | List defined profiles, mark the active one |
+| `/pm profile switch <name>` | Activate a profile and trigger a merge with its priority |
+| `/pm fetch` | Re-download every remote pack (ignores refresh policy) |
+| `/pm fetch <alias>` | Re-download one named remote pack |
 
 ### Permissions
 
@@ -206,6 +224,97 @@ Packs are listed highest-priority first in the config. When two packs contain th
 - **Language files** (`lang/*.json`): flat key-union — translations from all packs coexist, high priority wins on the same translation key
 - **CustomModelData collisions**: when two packs claim the same `custom_model_data` predicate, the lower-priority entry is dropped by the predicate dedup and a warning is logged with the file path and the offending predicate so operators can spot "my knife turned into a pistol"-style conflicts at merge time
 
+### Remote Pack Sources (1.1.0+)
+
+Declare packs in config that come from an HTTP(S) URL and PackMerger will
+download them into `packs/.remote-cache/<alias>.zip` before merging. Reference
+them in `priority:` by alias (no `.zip`). Supports ETag / Last-Modified caching,
+bearer + basic auth, and `${ENV_VAR}` substitution in URL and token fields.
+
+```yaml
+remote-packs:
+  quality-armory:
+    url: "https://github.com/user/repo/releases/latest/download/pack.zip"
+    refresh: "on-startup"     # "on-startup" | "on-reload" | "manual"
+    auth:
+      type: "bearer"
+      token: "${GITHUB_TOKEN}"
+```
+
+Use `/pm fetch` or `/pm fetch <alias>` to force a re-download outside the
+configured refresh policy. If a fetch fails but a cached copy exists,
+PackMerger uses the cache and logs a warning — transient network failures
+don't take your pack offline.
+
+### Profiles / Presets (1.1.0+)
+
+Flip between whole pack compositions atomically — useful for seasonal events
+or A/B testing. When `active-profile` is set, its `priority` and
+`server-packs` sections shadow the root-level keys. Absent = backwards-
+compatible with pre-1.1.0 configs.
+
+```yaml
+active-profile: "default"
+profiles:
+  default:
+    priority:
+      - "main-pack.zip"
+  halloween:
+    priority:
+      - "halloween-overlay.zip"
+      - "main-pack.zip"
+```
+
+Switch with `/pm profile switch halloween` — PackMerger updates `active-profile`
+in config, reloads, and re-merges immediately.
+
+### S3-Compatible Upload (1.1.0+)
+
+Set `upload.provider: "s3"` to push merged packs to any S3-compatible object
+store — AWS S3, Cloudflare R2, or Backblaze B2. One config works for all three;
+only the endpoint changes.
+
+```yaml
+upload:
+  provider: "s3"
+  s3:
+    endpoint: "https://<account>.r2.cloudflarestorage.com"
+    region: "auto"           # R2 accepts "auto"; AWS wants the canonical name
+    bucket: "my-packs"
+    access-key: "${S3_ACCESS_KEY}"
+    secret-key: "${S3_SECRET_KEY}"
+    public-url-base: "https://packs.example.com"    # CDN in front of the bucket
+    key-strategy: "content-addressed"                # <sha1>.zip, clients cache cleanly
+    retention:
+      keep-latest: 5                                  # old keys pruned after each upload
+```
+
+Private buckets: set `acl: "private"` and the provider returns a short-lived
+presigned URL instead. The JAR ships MinIO's SDK shaded and relocated, so it
+coexists with other plugins that bundle OkHttp or Jackson.
+
+### Plugin API (1.1.0+, experimental)
+
+Other plugins can integrate with PackMerger via the stable API surface and
+Bukkit events. See `docs/api-example.java` for a copy-paste starting point.
+
+```java
+PackMerger pm = (PackMerger) Bukkit.getPluginManager().getPlugin("PackMerger");
+PackMergerApi api = pm.getApi();
+
+String url = api.getCurrentPackUrl();
+MergeProvenance prov = api.getLastMergeProvenance();
+api.triggerMerge();
+```
+
+Available events (in `sh.pcx.packmerger.api.events`):
+`PackMergeStartedEvent`, `PackMergedEvent`, `PackUploadedEvent`,
+`PackUploadFailedEvent`, `PackValidationFailedEvent`,
+`PackSentToPlayerEvent`.
+
+API is marked `@Experimental` during 1.1.x — breaking changes are possible
+between 1.1.0 and 1.2 as we learn from real integrations.
+
 ### Per-Server Packs
 
 On a multi-server network, each backend server can have its own merged pack by defining `server-packs` entries in the config. Each server's `additional` packs are merged at lowest priority (below the global list), and `exclude` packs are skipped entirely. The output file is named `<server-name>-merged-pack.zip` to avoid conflicts.
@@ -239,6 +348,41 @@ After a player successfully loads a resource pack, the plugin records the pack's
 - **"Missing texture"** — a model references a texture path that doesn't exist in the merged pack. The texture may be in a pack that was excluded or not added
 - **"Missing model"** — a blockstate references a model that doesn't exist. Same cause as missing textures
 - Validation warnings don't prevent the pack from being sent — they indicate potential visual issues in-game
+
+### Players still see the old pack after a merge — was there a rollback?
+
+Since 1.1.0, PackMerger writes new merges to `<output>.new.zip` first and
+only promotes to the real output file if validation passes. If the new merge
+produces validation errors and `validation.rollback-on-errors: true` (the
+default), the previous pack stays live and `PackValidationFailedEvent` fires
+with `rolledBack=true`.
+
+- Check the console for `[VALIDATION]` + `rolled back` entries
+- Fix the validation errors in the offending pack and `/pm reload`
+- To ship despite errors (not recommended), set `validation.rollback-on-errors: false`
+- First-run case: if no previous pack exists yet, the broken pack ships anyway
+  with a loud error so the initial merge isn't a permanent stall
+
+### Orphan asset warnings are too noisy for my pack set
+
+Orphan detection (1.1.0+) scans the merged output for textures/sounds that no
+JSON references. It can false-positive on packs that use regex (`filter`) atlas
+sources, which PackMerger doesn't expand.
+
+- Disable per-install: `validation.detect-orphans: false`
+- Reduce the listed entries: `validation.orphan-report-limit: 5`
+- Run `/pm inspect export` to see the full list in
+  `output/last-merge-report.txt` if you want to audit and trim manually
+
+### `pack_format` mismatch warning on every merge
+
+The 1.1.0 validator compares the merged pack's `pack_format` to the running
+MC version. If you're stacking packs targeting a mix of versions, the output's
+value is whatever the highest-priority `pack.mcmeta` says.
+
+- Update the pack declaring the old format, or
+- Add a `supported_formats` range to its `pack.mcmeta` that includes your server's expected format, or
+- Set `validation.pack-format-check: "off"` to disable the check entirely
 
 ### "CustomModelData collision" warning in the console
 
