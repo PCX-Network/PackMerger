@@ -1,9 +1,16 @@
 package sh.pcx.packmerger.merge;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import sh.pcx.packmerger.PackMerger;
 import sh.pcx.packmerger.config.ConfigManager;
+import sh.pcx.packmerger.merge.strategy.AtlasMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.BlockstateMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.EquipmentMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.FontMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.ItemDefinitionMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.MergeStrategy;
+import sh.pcx.packmerger.merge.strategy.ModelMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.SoundsMergeStrategy;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -21,15 +28,12 @@ import sh.pcx.packmerger.PluginLogger;
  * so that higher-priority files overwrite lower-priority ones. This applies to non-JSON files
  * (textures, sounds, etc.) which use a simple last-write-wins approach.</p>
  *
- * <p>Certain JSON files receive special treatment instead of being overwritten:</p>
- * <ul>
- *   <li><strong>Model and blockstate JSON</strong> ({@code assets/<ns>/models/} and
- *       {@code assets/<ns>/blockstates/}) — deep merged via {@link JsonMerger#deepMerge},
- *       preserving non-conflicting keys from both packs</li>
- *   <li><strong>sounds.json</strong> ({@code assets/<ns>/sounds.json}) — sound event arrays
- *       are concatenated via {@link JsonMerger#mergeSoundsJson} so sounds from multiple
- *       packs coexist</li>
- * </ul>
+ * <p>Certain JSON files receive format-specific merge treatment via registered
+ * {@link MergeStrategy} implementations instead of being overwritten. Each strategy
+ * encapsulates the correct semantics for its format — e.g. the model strategy concat-
+ * dedups {@code overrides} arrays so that two packs adding CustomModelData to the
+ * same vanilla item (the QualityArmory compatibility case) both survive. See the
+ * {@code sh.pcx.packmerger.merge.strategy} package.</p>
  *
  * <p>The engine also supports custom overrides: placing a {@code pack.mcmeta} or
  * {@code pack.png} directly in the packs folder (not inside a pack) overrides the
@@ -49,6 +53,12 @@ public class PackMergeEngine {
 
     /** Colored console logger. */
     private final PluginLogger logger;
+
+    /**
+     * JSON merge strategies checked in registration order — the first matching
+     * strategy is used, so list more specific patterns before more general ones.
+     */
+    private final List<MergeStrategy> mergeStrategies;
 
     /**
      * Filenames (lowercase) considered junk/OS metadata that should be stripped
@@ -74,6 +84,15 @@ public class PackMergeEngine {
     public PackMergeEngine(PackMerger plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
+        this.mergeStrategies = List.of(
+                new SoundsMergeStrategy(),        // sounds.json — checked before models/ to avoid shadowing
+                new ModelMergeStrategy(),         // models/**.json — overrides dedup by predicate
+                new BlockstateMergeStrategy(),    // blockstates/**.json — multipart cases dedup by when
+                new AtlasMergeStrategy(),         // atlases/**.json — sources concat (1.19.3+)
+                new ItemDefinitionMergeStrategy(),// items/**.json    — deep-merge (1.21.4+)
+                new EquipmentMergeStrategy(),     // equipment/**.json — deep-merge (1.21.2+)
+                new FontMergeStrategy()           // font/**.json — providers concat
+        );
     }
 
     /**
@@ -444,14 +463,9 @@ public class PackMergeEngine {
     /**
      * Routes a single file into the appropriate merge map based on its path.
      *
-     * <p>Files in {@code assets/<ns>/models/}, {@code assets/<ns>/blockstates/}, and
-     * {@code assets/<ns>/sounds.json} are treated as mergeable JSON — their contents are
-     * parsed and deep-merged with any existing entry rather than being overwritten.
-     * sounds.json gets special handling where sound arrays are concatenated instead of
-     * replaced.</p>
-     *
-     * <p>All other files (textures, audio, shaders, etc.) use simple overwrite semantics —
-     * the higher-priority pack's version wins.</p>
+     * <p>If any registered {@link MergeStrategy} matches the path, the file is parsed
+     * as JSON and handled by that strategy. Otherwise it uses simple overwrite
+     * semantics — the higher-priority pack's version wins.</p>
      *
      * @param path        the normalized file path within the resource pack
      * @param data        the raw file content bytes
@@ -459,71 +473,42 @@ public class PackMergeEngine {
      * @param mergedJson  map for deep-mergeable JSON files
      */
     private void processFile(String path, byte[] data, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson) {
-        if (isMergeableJson(path)) {
-            // Parse the JSON content for deep merging
-            String content = new String(data, StandardCharsets.UTF_8);
-            JsonObject newJson = JsonMerger.parseJson(content);
-            if (newJson != null) {
-                if (mergedJson.containsKey(path)) {
-                    // This file already exists from a lower-priority pack — merge them
-                    JsonObject existing = mergedJson.get(path);
-                    if (isSoundsJson(path)) {
-                        // sounds.json: concatenate sound arrays for the same event
-                        mergedJson.put(path, JsonMerger.mergeSoundsJson(newJson, existing));
-                    } else {
-                        // Model/blockstate JSON: deep merge preserving non-conflicting keys
-                        mergedJson.put(path, JsonMerger.deepMerge(newJson, existing));
-                    }
-                    logger.debug("JSON merged: " + path);
-                } else {
-                    // First occurrence of this file — store it as-is
-                    mergedJson.put(path, newJson);
-                }
-            } else {
-                // Invalid JSON in a mergeable path — fall back to raw overwrite with a warning
-                logger.warning("Invalid JSON in mergeable file (using raw): " + path);
-                mergedFiles.put(path, data);
-            }
-        } else {
+        MergeStrategy strategy = findStrategy(path);
+        if (strategy == null) {
             // Non-JSON or non-mergeable file: higher priority replaces lower priority (last write wins)
             mergedFiles.put(path, data);
+            return;
+        }
+
+        String content = new String(data, StandardCharsets.UTF_8);
+        JsonObject newJson = JsonMerger.parseJson(content);
+        if (newJson == null) {
+            // Invalid JSON in a mergeable path — fall back to raw overwrite with a warning
+            logger.warning("Invalid JSON in mergeable file (using raw): " + path);
+            mergedFiles.put(path, data);
+            return;
+        }
+
+        JsonObject existing = mergedJson.get(path);
+        if (existing != null) {
+            // Already saw this file from a lower-priority pack — apply strategy merge
+            mergedJson.put(path, strategy.merge(newJson, existing));
+            logger.debug("JSON merged (" + strategy.name() + "): " + path);
+        } else {
+            // First occurrence — store as-is
+            mergedJson.put(path, newJson);
         }
     }
 
     /**
-     * Determines whether a file at the given path should be deep-merged as JSON
-     * rather than using simple overwrite semantics.
-     *
-     * <p>Mergeable paths include:</p>
-     * <ul>
-     *   <li>{@code assets/<namespace>/models/**&#47;*.json} — item/block model definitions</li>
-     *   <li>{@code assets/<namespace>/blockstates/**&#47;*.json} — blockstate variant mappings</li>
-     *   <li>{@code assets/<namespace>/sounds.json} — sound event definitions</li>
-     * </ul>
-     *
-     * @param path the normalized file path to check
-     * @return {@code true} if this file should be deep-merged
+     * Finds the first registered strategy that matches the given path, or {@code null}
+     * if no strategy applies (in which case the file uses simple overwrite semantics).
      */
-    private boolean isMergeableJson(String path) {
-        String lower = path.toLowerCase();
-        // Match: assets/<any-namespace>/models/<any-depth>.json
-        if (lower.matches("assets/[^/]+/models/.+\\.json")) return true;
-        // Match: assets/<any-namespace>/blockstates/<any-depth>.json
-        if (lower.matches("assets/[^/]+/blockstates/.+\\.json")) return true;
-        // Match: assets/<any-namespace>/sounds.json
-        if (lower.matches("assets/[^/]+/sounds\\.json")) return true;
-        return false;
-    }
-
-    /**
-     * Checks if a path points to a sounds.json file.
-     *
-     * @param path the normalized file path to check
-     * @return {@code true} if this is a namespace sounds.json
-     */
-    private boolean isSoundsJson(String path) {
-        // Match: assets/<any-namespace>/sounds.json
-        return path.toLowerCase().matches("assets/[^/]+/sounds\\.json");
+    private MergeStrategy findStrategy(String path) {
+        for (MergeStrategy s : mergeStrategies) {
+            if (s.matches(path)) return s;
+        }
+        return null;
     }
 
     /**

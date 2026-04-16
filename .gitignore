@@ -21,3 +21,6 @@ desktop.ini
 # Runtime
 run/
 logs/
+
+# Claude Code local session data
+.claude/
