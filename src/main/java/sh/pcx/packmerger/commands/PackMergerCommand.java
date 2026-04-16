@@ -1,19 +1,24 @@
 package sh.pcx.packmerger.commands;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import sh.pcx.packmerger.PackMerger;
 import sh.pcx.packmerger.config.MessageManager;
+import sh.pcx.packmerger.merge.MergeProvenance;
 import sh.pcx.packmerger.merge.PackValidator;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 
 /**
@@ -87,6 +92,14 @@ public class PackMergerCommand {
                                     .executes(this::handleApplyAll)
                                     .then(Commands.argument("player", ArgumentTypes.player())
                                             .executes(this::handleApplyPlayer)))
+                            .then(Commands.literal("inspect")
+                                    .executes(this::handleInspectSummary)
+                                    .then(Commands.literal("collisions")
+                                            .executes(this::handleInspectCollisions))
+                                    .then(Commands.literal("export")
+                                            .executes(this::handleInspectExport))
+                                    .then(Commands.argument("pack", StringArgumentType.string())
+                                            .executes(this::handleInspectPack)))
                             .build(),
                     "PackMerger admin commands",
                     List.of("pm") // Register /pm as an alias for /packmerger
@@ -281,5 +294,64 @@ public class PackMergerCommand {
         }
 
         return 1;
+    }
+
+    /** Shared MiniMessage parser for the inspect subcommands' styled output. */
+    private static final MiniMessage MINI = MiniMessage.miniMessage();
+
+    /** Sends each rendered line through MiniMessage to the given sender. */
+    private static void sendAll(CommandSender sender, List<String> lines) {
+        for (String line : lines) {
+            sender.sendMessage(MINI.deserialize(line));
+        }
+    }
+
+    /** {@code /pm inspect} — top-line summary of the last merge. */
+    private int handleInspectSummary(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        MergeProvenance prov = plugin.getLastMergeProvenance();
+        sendAll(sender, InspectRenderer.summary(prov));
+        return 1;
+    }
+
+    /** {@code /pm inspect collisions} — list every path contributed by 2+ packs. */
+    private int handleInspectCollisions(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        MergeProvenance prov = plugin.getLastMergeProvenance();
+        sendAll(sender, InspectRenderer.collisions(prov));
+        return 1;
+    }
+
+    /** {@code /pm inspect <pack>} — what this pack won + contributed but lost on. */
+    private int handleInspectPack(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String packName = StringArgumentType.getString(ctx, "pack");
+        MergeProvenance prov = plugin.getLastMergeProvenance();
+        sendAll(sender, InspectRenderer.packDetail(prov, packName));
+        return 1;
+    }
+
+    /** {@code /pm inspect export} — write the full report to output/last-merge-report.txt. */
+    private int handleInspectExport(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        MergeProvenance prov = plugin.getLastMergeProvenance();
+        if (prov == null) {
+            sender.sendMessage(MINI.deserialize("<red>No merge has completed yet.</red>"));
+            return 0;
+        }
+
+        File reportFile = new File(plugin.getOutputFolder(), "last-merge-report.txt");
+        try {
+            List<String> lines = InspectRenderer.fullReport(prov);
+            Files.writeString(reportFile.toPath(), String.join(System.lineSeparator(), lines),
+                    StandardCharsets.UTF_8);
+            sender.sendMessage(MINI.deserialize("<green>Wrote merge report to <white>"
+                    + reportFile.getAbsolutePath() + "</white></green>"));
+            return 1;
+        } catch (Exception e) {
+            sender.sendMessage(MINI.deserialize("<red>Failed to write report: "
+                    + e.getMessage() + "</red>"));
+            return 0;
+        }
     }
 }
