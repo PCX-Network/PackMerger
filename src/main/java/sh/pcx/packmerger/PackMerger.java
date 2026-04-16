@@ -9,6 +9,7 @@ import sh.pcx.packmerger.distribution.PackDistributor;
 import sh.pcx.packmerger.distribution.PlayerCacheManager;
 import sh.pcx.packmerger.listeners.PlayerJoinListener;
 import sh.pcx.packmerger.merge.FileWatcher;
+import sh.pcx.packmerger.merge.MergeProvenance;
 import sh.pcx.packmerger.merge.PackMergeEngine;
 import sh.pcx.packmerger.merge.PackValidator;
 import sh.pcx.packmerger.upload.PolymathUploadProvider;
@@ -16,6 +17,8 @@ import sh.pcx.packmerger.upload.SelfHostProvider;
 import sh.pcx.packmerger.upload.UploadProvider;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
@@ -110,6 +113,10 @@ public class PackMerger extends JavaPlugin {
         cacheManager = new PlayerCacheManager(this);
         cacheManager.load();
         distributor = new PackDistributor(this);
+
+        // Restore last merge provenance from disk if present so /pm inspect and
+        // the plugin API have data immediately on startup, before any merge runs
+        loadLastProvenance();
 
         // Initialize upload provider (may start an HTTP server if using self-host)
         initUploadProvider();
@@ -460,6 +467,35 @@ public class PackMerger extends JavaPlugin {
 
     /** @return the active upload provider */
     public UploadProvider getUploadProvider() { return uploadProvider; }
+
+    /**
+     * @return provenance for the most recent successful merge, or {@code null}
+     *         if no merge has completed during this plugin's lifetime and no
+     *         prior {@code .merge-provenance.json} was restored on startup
+     */
+    public MergeProvenance getLastMergeProvenance() {
+        return mergeEngine == null ? null : mergeEngine.getLastProvenance();
+    }
+
+    /**
+     * Restores merge provenance from {@code output/.merge-provenance.json} so
+     * /pm inspect and the plugin API have a sensible answer before the first
+     * merge runs. Silently skipped if the file doesn't exist or fails to parse.
+     */
+    private void loadLastProvenance() {
+        File provenanceFile = new File(getOutputFolder(), ".merge-provenance.json");
+        if (!provenanceFile.isFile()) return;
+        try {
+            String json = Files.readString(provenanceFile.toPath(), StandardCharsets.UTF_8);
+            MergeProvenance restored = MergeProvenance.fromJson(json);
+            if (restored != null) {
+                mergeEngine.setLastProvenance(restored);
+                logger.debug("Restored merge provenance from disk");
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to restore merge provenance: " + e.getMessage());
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Pack state accessors

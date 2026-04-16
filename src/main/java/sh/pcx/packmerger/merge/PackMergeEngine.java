@@ -18,6 +18,7 @@ import sh.pcx.packmerger.merge.strategy.SoundsMergeStrategy;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.time.Instant;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -62,6 +63,12 @@ public class PackMergeEngine {
      * strategy is used, so list more specific patterns before more general ones.
      */
     private final List<MergeStrategy> mergeStrategies;
+
+    /**
+     * Populated during the most recent {@link #merge()} call; {@code null} until
+     * the first merge completes. Exposes which pack contributed each output file.
+     */
+    private MergeProvenance lastProvenance;
 
     /**
      * Filenames (lowercase) considered junk/OS metadata that should be stripped
@@ -145,6 +152,8 @@ public class PackMergeEngine {
         Map<String, byte[]> mergedFiles = new LinkedHashMap<>();
         // mergedJson holds parsed JSON objects for files that get deep-merged instead of overwritten
         Map<String, JsonObject> mergedJson = new LinkedHashMap<>();
+        // Provenance tracker: records which pack contributed each path
+        MergeProvenance.Builder provenance = new MergeProvenance.Builder();
 
         // Process packs in REVERSE order (lowest priority first) so that higher-priority
         // packs overwrite lower-priority ones via map.put() for non-JSON files, or take
@@ -161,9 +170,9 @@ public class PackMergeEngine {
             try {
                 int filesBefore = mergedFiles.size() + mergedJson.size();
                 if (packFile.isDirectory()) {
-                    mergeDirectory(packFile, packFile.toPath(), mergedFiles, mergedJson, config.isStripJunkFiles());
+                    mergeDirectory(packFile, packFile.toPath(), mergedFiles, mergedJson, config.isStripJunkFiles(), packName, provenance);
                 } else if (packName.endsWith(".zip")) {
-                    mergeZip(packFile, mergedFiles, mergedJson, config.isStripJunkFiles());
+                    mergeZip(packFile, mergedFiles, mergedJson, config.isStripJunkFiles(), packName, provenance);
                 }
                 int filesAdded = (mergedFiles.size() + mergedJson.size()) - filesBefore;
                 logger.merge("Merged pack: " + packName + " (" + filesAdded + " new files)");
@@ -181,11 +190,13 @@ public class PackMergeEngine {
         if (customMcmeta.exists() && customMcmeta.isFile()) {
             logger.merge("Using custom pack.mcmeta from packs folder");
             mergedFiles.put("pack.mcmeta", Files.readAllBytes(customMcmeta.toPath()));
+            provenance.recordExternal("pack.mcmeta", "<custom:pack.mcmeta>");
         }
 
         if (customIcon.exists() && customIcon.isFile()) {
             logger.merge("Using custom pack.png from packs folder");
             mergedFiles.put("pack.png", Files.readAllBytes(customIcon.toPath()));
+            provenance.recordExternal("pack.png", "<custom:pack.png>");
         }
 
         // Step 6: Ensure a pack.mcmeta exists — Minecraft requires it for valid resource packs
@@ -200,6 +211,7 @@ public class PackMergeEngine {
                       }
                     }""";
             mergedFiles.put("pack.mcmeta", defaultMcmeta.getBytes(StandardCharsets.UTF_8));
+            provenance.recordExternal("pack.mcmeta", "<generated:default>");
         }
 
         if (mergedFiles.isEmpty()) {
@@ -229,7 +241,44 @@ public class PackMergeEngine {
             }
         }
 
+        // Freeze provenance and persist alongside the output zip so restarts
+        // don't blank the state for /pm inspect and API consumers.
+        this.lastProvenance = provenance.build(orderedPacks, Instant.now());
+        writeProvenance(outputFile, this.lastProvenance);
+
         return outputFile;
+    }
+
+    /**
+     * @return the provenance of the most recent successful merge, or {@code null}
+     *         if no merge has completed yet during this plugin's lifetime
+     */
+    public MergeProvenance getLastProvenance() {
+        return lastProvenance;
+    }
+
+    /**
+     * Overwrites the in-memory provenance state, used on plugin startup to
+     * restore from the on-disk {@code .merge-provenance.json} so the inspect
+     * command has data before any merge runs.
+     */
+    public void setLastProvenance(MergeProvenance provenance) {
+        this.lastProvenance = provenance;
+    }
+
+    /**
+     * Writes provenance to {@code <outputFile>.provenance.json} for durability
+     * across restarts. Failures are logged but never propagate — provenance is
+     * diagnostic, not load-bearing.
+     */
+    private void writeProvenance(File outputFile, MergeProvenance provenance) {
+        File provenanceFile = new File(outputFile.getParentFile(), ".merge-provenance.json");
+        try {
+            Files.writeString(provenanceFile.toPath(), provenance.toJson(), StandardCharsets.UTF_8);
+            logger.debug("Wrote merge provenance: " + provenanceFile.getName());
+        } catch (IOException e) {
+            logger.warning("Failed to persist merge provenance (" + e.getMessage() + ")");
+        }
     }
 
     /**
@@ -334,7 +383,8 @@ public class PackMergeEngine {
      * @param stripJunk   whether to skip junk/hidden files
      * @throws IOException if reading the zip fails
      */
-    private void mergeZip(File zipFile, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson, boolean stripJunk) throws IOException {
+    private void mergeZip(File zipFile, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson, boolean stripJunk,
+                          String packName, MergeProvenance.Builder provenance) throws IOException {
         try (ZipFile zf = new ZipFile(zipFile)) {
             // Detect if all entries share a common root folder prefix (e.g. "MyPack/assets/...")
             // Many third-party packs are zipped with a wrapper folder that needs stripping
@@ -370,7 +420,7 @@ public class PackMergeEngine {
                     data = is.readAllBytes();
                 }
 
-                processFile(path, data, mergedFiles, mergedJson);
+                processFile(path, data, mergedFiles, mergedJson, packName, provenance);
             }
         }
     }
@@ -444,7 +494,8 @@ public class PackMergeEngine {
      * @param stripJunk   whether to skip junk/hidden files
      * @throws IOException if walking the directory tree fails
      */
-    private void mergeDirectory(File baseDir, Path basePath, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson, boolean stripJunk) throws IOException {
+    private void mergeDirectory(File baseDir, Path basePath, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson, boolean stripJunk,
+                                String packName, MergeProvenance.Builder provenance) throws IOException {
         try (var stream = Files.walk(basePath)) {
             stream.filter(Files::isRegularFile).forEach(filePath -> {
                 try {
@@ -457,7 +508,7 @@ public class PackMergeEngine {
                     }
 
                     byte[] data = Files.readAllBytes(filePath);
-                    processFile(relativePath, data, mergedFiles, mergedJson);
+                    processFile(relativePath, data, mergedFiles, mergedJson, packName, provenance);
                 } catch (IOException e) {
                     logger.warning("Failed to read file: " + filePath, e);
                 }
@@ -477,11 +528,13 @@ public class PackMergeEngine {
      * @param mergedFiles map for non-mergeable files (overwrite semantics)
      * @param mergedJson  map for deep-mergeable JSON files
      */
-    private void processFile(String path, byte[] data, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson) {
+    private void processFile(String path, byte[] data, Map<String, byte[]> mergedFiles, Map<String, JsonObject> mergedJson,
+                             String packName, MergeProvenance.Builder provenance) {
         MergeStrategy strategy = findStrategy(path);
         if (strategy == null) {
             // Non-JSON or non-mergeable file: higher priority replaces lower priority (last write wins)
             mergedFiles.put(path, data);
+            provenance.record(path, packName, null, false);
             return;
         }
 
@@ -491,6 +544,7 @@ public class PackMergeEngine {
             // Invalid JSON in a mergeable path — fall back to raw overwrite with a warning
             logger.warning("Invalid JSON in mergeable file (using raw): " + path);
             mergedFiles.put(path, data);
+            provenance.record(path, packName, null, false);
             return;
         }
 
@@ -498,10 +552,12 @@ public class PackMergeEngine {
         if (existing != null) {
             // Already saw this file from a lower-priority pack — apply strategy merge
             mergedJson.put(path, strategy.merge(newJson, existing, new MergeContext(path, logger::warning)));
+            provenance.record(path, packName, strategy.name(), true);
             logger.debug("JSON merged (" + strategy.name() + "): " + path);
         } else {
             // First occurrence — store as-is
             mergedJson.put(path, newJson);
+            provenance.record(path, packName, strategy.name(), false);
         }
     }
 
