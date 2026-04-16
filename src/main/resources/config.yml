@@ -310,6 +310,27 @@ validation:
   # Default: "warn"
   pack-format-check: "warn"
 
+  # When a merge produces a pack that fails validation (errors, not warnings),
+  # rollback keeps the previous merged pack live so players continue seeing a
+  # working version instead of a broken one. The failed attempt is discarded
+  # and a PackValidationFailedEvent fires so other plugins can page someone.
+  #
+  # Only kicks in when a previous output actually exists — on the very first
+  # merge with a broken pack, there is nothing to roll back to and we ship
+  # the broken pack anyway (with a loud error log).
+  #
+  # Valid values: true, false
+  # Default: true
+  rollback-on-errors: true
+
+  # Whether non-critical warnings (missing textures, invalid JSON in non-
+  # critical files) should also trigger rollback. Most operators want only
+  # hard errors to block a ship, so warnings-only packs still go out.
+  #
+  # Valid values: true, false
+  # Default: false
+  fail-on-warnings: false
+
 # =============================================================================
 # Logging
 # =============================================================================

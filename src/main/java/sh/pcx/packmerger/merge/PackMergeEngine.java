@@ -126,6 +126,23 @@ public class PackMergeEngine {
      * @throws IOException if reading source packs or writing the output zip fails
      */
     public File merge() throws IOException {
+        return merge(null);
+    }
+
+    /**
+     * Like {@link #merge()}, but writes the output zip to {@code targetOverride}
+     * instead of {@link PackMerger#getOutputFile()}. Callers that want
+     * rollback-on-validation-failure pass a temp file here, validate the result,
+     * and then atomically rename to the real output if validation passed.
+     *
+     * <p>The provenance sidecar ({@code <target>.provenance.json}) is written
+     * alongside {@code targetOverride} with the same name stem, so rollback
+     * can delete both together.</p>
+     *
+     * @param targetOverride the target zip location, or {@code null} to use
+     *                       {@link PackMerger#getOutputFile()} (legacy path)
+     */
+    public File merge(File targetOverride) throws IOException {
         File packsFolder = plugin.getPacksFolder();
         ConfigManager config = plugin.getConfigManager();
 
@@ -219,8 +236,10 @@ public class PackMergeEngine {
             return null;
         }
 
-        // Step 7: Write the output zip
-        File outputFile = plugin.getOutputFile();
+        // Step 7: Write the output zip. Callers that want rollback-on-validation-failure
+        // pass a temp target via {@link #merge(File)}; the default merge() writes
+        // directly to plugin.getOutputFile() for backwards compatibility.
+        File outputFile = targetOverride != null ? targetOverride : plugin.getOutputFile();
         outputFile.getParentFile().mkdirs();
 
         writeZip(outputFile, mergedFiles, config.getCompressionLevel());
@@ -267,18 +286,26 @@ public class PackMergeEngine {
     }
 
     /**
-     * Writes provenance to {@code <outputFile>.provenance.json} for durability
-     * across restarts. Failures are logged but never propagate — provenance is
-     * diagnostic, not load-bearing.
+     * Writes provenance to {@code <outputFile>.provenance.json} (sidecar to the
+     * output zip) so rollback-on-validation-failure can delete the zip and its
+     * provenance as a pair. Failures are logged but never propagate — provenance
+     * is diagnostic, not load-bearing.
      */
     private void writeProvenance(File outputFile, MergeProvenance provenance) {
-        File provenanceFile = new File(outputFile.getParentFile(), ".merge-provenance.json");
+        File provenanceFile = provenanceSidecar(outputFile);
         try {
             Files.writeString(provenanceFile.toPath(), provenance.toJson(), StandardCharsets.UTF_8);
             logger.debug("Wrote merge provenance: " + provenanceFile.getName());
         } catch (IOException e) {
             logger.warning("Failed to persist merge provenance (" + e.getMessage() + ")");
         }
+    }
+
+    /**
+     * @return the canonical provenance sidecar path for a given merged pack zip
+     */
+    public static File provenanceSidecar(File zipFile) {
+        return new File(zipFile.getParentFile(), zipFile.getName() + ".provenance.json");
     }
 
     /**

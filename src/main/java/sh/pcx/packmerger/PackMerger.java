@@ -7,6 +7,7 @@ import sh.pcx.packmerger.api.events.PackMergeStartedEvent;
 import sh.pcx.packmerger.api.events.PackMergedEvent;
 import sh.pcx.packmerger.api.events.PackUploadFailedEvent;
 import sh.pcx.packmerger.api.events.PackUploadedEvent;
+import sh.pcx.packmerger.api.events.PackValidationFailedEvent;
 import sh.pcx.packmerger.commands.PackMergerCommand;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.config.MessageManager;
@@ -22,8 +23,11 @@ import sh.pcx.packmerger.upload.SelfHostProvider;
 import sh.pcx.packmerger.upload.UploadProvider;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
@@ -239,11 +243,17 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         // Run the entire pipeline off the main thread to avoid blocking the server tick loop
         return CompletableFuture.runAsync(() -> {
             try {
-                // Step 1: Merge all packs into a single output zip
-                File outputFile = mergeEngine.merge();
-                if (outputFile == null) {
+                // Step 1: Merge all packs into a temp output zip (.new.zip) so we can
+                // validate before committing. This is the rollback-on-validation-failure
+                // escape hatch — if validation trips a critical error we leave the
+                // previous output intact and players keep seeing yesterday's pack.
+                File finalOutputFile = getOutputFile();
+                File tempOutputFile = new File(finalOutputFile.getParentFile(),
+                        finalOutputFile.getName() + ".new");
+
+                File mergedTemp = mergeEngine.merge(tempOutputFile);
+                if (mergedTemp == null) {
                     if (sender != null) {
-                        // Return to main thread for Bukkit API calls (sendMessage)
                         Bukkit.getScheduler().runTask(this, () ->
                                 sender.sendMessage(messageManager.getMessage("merge.failed-no-packs")));
                     }
@@ -253,15 +263,63 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
                 lastMergeTime = LocalDateTime.now();
 
                 // Fire PackMergeStartedEvent with the resolved pack order now that we
-                // know the merge produced output. (Can't fire earlier because the
-                // engine owns the order resolution.)
+                // know the merge produced output.
                 MergeProvenance provenance = mergeEngine.getLastProvenance();
                 if (provenance != null) {
                     Bukkit.getPluginManager().callEvent(new PackMergeStartedEvent(provenance.packOrder()));
                 }
 
                 // Step 2: Validate the merged pack for structural issues
-                PackValidator.ValidationResult validationResult = validator.validate(outputFile);
+                PackValidator.ValidationResult validationResult = validator.validate(mergedTemp);
+
+                // Step 2b: Decide whether this output is shippable. If validation
+                // tripped errors (or warnings, when fail-on-warnings is enabled) and
+                // rollback is enabled AND a previous output exists to fall back to,
+                // we delete the temp and fire PackValidationFailedEvent with rolledBack=true.
+                boolean hasValidationFailure = validationResult.errors() > 0
+                        || (configManager.isFailOnWarnings() && validationResult.warnings() > 0);
+                boolean canRollback = configManager.isRollbackOnErrors() && finalOutputFile.exists();
+
+                if (hasValidationFailure && canRollback) {
+                    logger.error("Validation produced " + validationResult.errors() + " error(s) and "
+                            + validationResult.warnings() + " warning(s). Rolling back — the previous merged pack remains live.");
+                    // Delete the temp zip + its provenance sidecar. Restore lastProvenance from the old output's sidecar.
+                    safeDelete(tempOutputFile);
+                    safeDelete(PackMergeEngine.provenanceSidecar(tempOutputFile));
+                    restoreProvenanceFrom(finalOutputFile);
+                    Bukkit.getPluginManager().callEvent(new PackValidationFailedEvent(validationResult, true));
+                    if (sender != null) {
+                        Bukkit.getScheduler().runTask(this, () ->
+                                sender.sendMessage(messageManager.getMessage("merge.failed",
+                                        "error", "validation failed; previous pack preserved")));
+                    }
+                    return;
+                }
+
+                if (hasValidationFailure) {
+                    // Either rollback is disabled or there's no previous pack — ship the broken pack,
+                    // but fire the event so listeners can page someone.
+                    logger.error("Validation produced " + validationResult.errors() + " error(s); shipping anyway ("
+                            + (configManager.isRollbackOnErrors() ? "no previous pack to roll back to" : "rollback disabled")
+                            + ")");
+                    Bukkit.getPluginManager().callEvent(new PackValidationFailedEvent(validationResult, false));
+                }
+
+                // Step 2c: Commit — promote the temp zip + its provenance sidecar to the final paths.
+                File outputFile;
+                try {
+                    outputFile = commitMerge(tempOutputFile, finalOutputFile);
+                } catch (IOException ioe) {
+                    logger.error("Failed to commit merged pack (" + ioe.getMessage() + ")", ioe);
+                    safeDelete(tempOutputFile);
+                    safeDelete(PackMergeEngine.provenanceSidecar(tempOutputFile));
+                    if (sender != null) {
+                        Bukkit.getScheduler().runTask(this, () ->
+                                sender.sendMessage(messageManager.getMessage("merge.failed",
+                                        "error", ioe.getMessage())));
+                    }
+                    return;
+                }
 
                 // Step 3: Compute SHA-1 hash (required by Minecraft's resource pack protocol)
                 byte[] hash = computeSha1(outputFile);
@@ -371,6 +429,74 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         initUploadProvider();
         stopFileWatcher();
         startFileWatcher();
+    }
+
+    /**
+     * Promotes a successfully-validated temp output to the real output path,
+     * keeping the previous output as {@code <output>.previous} so a single
+     * rollback target is always available.
+     *
+     * <p>Uses {@link StandardCopyOption#ATOMIC_MOVE} where possible (NTFS on
+     * Windows and most POSIX filesystems support it); falls back to a plain
+     * {@code REPLACE_EXISTING} move if the atomic flag is rejected.</p>
+     */
+    private File commitMerge(File tempOutput, File finalOutput) throws IOException {
+        File previous = new File(finalOutput.getParentFile(), finalOutput.getName() + ".previous");
+        File tempProvenance = PackMergeEngine.provenanceSidecar(tempOutput);
+        File finalProvenance = PackMergeEngine.provenanceSidecar(finalOutput);
+        File previousProvenance = PackMergeEngine.provenanceSidecar(previous);
+
+        // Rotate the current output to .previous if it exists. We don't keep
+        // more than one backup — just enough for a single-shot rollback.
+        if (finalOutput.exists()) {
+            moveWithAtomicFallback(finalOutput, previous);
+            if (finalProvenance.exists()) {
+                moveWithAtomicFallback(finalProvenance, previousProvenance);
+            }
+        }
+
+        moveWithAtomicFallback(tempOutput, finalOutput);
+        if (tempProvenance.exists()) {
+            moveWithAtomicFallback(tempProvenance, finalProvenance);
+        }
+        return finalOutput;
+    }
+
+    private static void moveWithAtomicFallback(File source, File target) throws IOException {
+        try {
+            Files.move(source.toPath(), target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * After a rollback, restore {@code lastProvenance} on the engine to the
+     * sidecar of the (still-live) previous output so {@code /pm inspect} and
+     * the plugin API keep reflecting what's actually shipping.
+     */
+    private void restoreProvenanceFrom(File outputFile) {
+        File sidecar = PackMergeEngine.provenanceSidecar(outputFile);
+        if (!sidecar.isFile()) return;
+        try {
+            String json = Files.readString(sidecar.toPath(), StandardCharsets.UTF_8);
+            MergeProvenance restored = MergeProvenance.fromJson(json);
+            if (restored != null) {
+                mergeEngine.setLastProvenance(restored);
+            }
+        } catch (IOException e) {
+            logger.debug("Could not restore provenance after rollback: " + e.getMessage());
+        }
+    }
+
+    private void safeDelete(File f) {
+        if (f == null || !f.exists()) return;
+        try {
+            Files.deleteIfExists(f.toPath());
+        } catch (IOException e) {
+            logger.debug("Could not delete " + f.getName() + ": " + e.getMessage());
+        }
     }
 
     /**
@@ -517,12 +643,13 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
     }
 
     /**
-     * Restores merge provenance from {@code output/.merge-provenance.json} so
-     * /pm inspect and the plugin API have a sensible answer before the first
-     * merge runs. Silently skipped if the file doesn't exist or fails to parse.
+     * Restores merge provenance from the current output's sidecar
+     * ({@code <output>.provenance.json}) so /pm inspect and the plugin API have
+     * a sensible answer before the first merge runs. Silently skipped if the
+     * file doesn't exist or fails to parse.
      */
     private void loadLastProvenance() {
-        File provenanceFile = new File(getOutputFolder(), ".merge-provenance.json");
+        File provenanceFile = PackMergeEngine.provenanceSidecar(getOutputFile());
         if (!provenanceFile.isFile()) return;
         try {
             String json = Files.readString(provenanceFile.toPath(), StandardCharsets.UTF_8);

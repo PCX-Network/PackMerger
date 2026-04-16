@@ -145,6 +145,12 @@ public class ConfigManager {
     /** How to treat pack_format mismatches against the running server version: "warn", "error", or "off". */
     private String packFormatCheckMode;
 
+    /** Whether to revert to the previous merged pack if the new merge has validation errors. */
+    private boolean rollbackOnErrors;
+
+    /** Whether validation warnings (not just errors) should also trigger rollback. */
+    private boolean failOnWarnings;
+
     // -------------------------------------------------------------------------
     // Logging
     // -------------------------------------------------------------------------
@@ -231,6 +237,8 @@ public class ConfigManager {
 
         // Validation
         packFormatCheckMode = config.getString("validation.pack-format-check", "warn");
+        rollbackOnErrors = config.getBoolean("validation.rollback-on-errors", true);
+        failOnWarnings = config.getBoolean("validation.fail-on-warnings", false);
 
         // Logging
         logLevel = config.getString("log-level", "info");
@@ -366,6 +374,12 @@ public class ConfigManager {
      *         {@code "error"}, or {@code "off"} to disable the check
      */
     public String getPackFormatCheckMode() { return packFormatCheckMode; }
+
+    /** @return {@code true} (default) if validation errors should revert to the previous merged pack */
+    public boolean isRollbackOnErrors() { return rollbackOnErrors; }
+
+    /** @return {@code true} if validation warnings should also trigger rollback (default {@code false}) */
+    public boolean isFailOnWarnings() { return failOnWarnings; }
 
     // -------------------------------------------------------------------------
     // Getters — Logging
