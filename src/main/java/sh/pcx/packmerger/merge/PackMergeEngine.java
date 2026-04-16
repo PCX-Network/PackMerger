@@ -10,6 +10,7 @@ import sh.pcx.packmerger.merge.strategy.FontMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.ItemDefinitionMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.MergeStrategy;
 import sh.pcx.packmerger.merge.strategy.ModelMergeStrategy;
+import sh.pcx.packmerger.merge.strategy.PackMcmetaMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.SoundsMergeStrategy;
 
 import java.io.*;
@@ -85,6 +86,7 @@ public class PackMergeEngine {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.mergeStrategies = List.of(
+                new PackMcmetaMergeStrategy(),    // pack.mcmeta — overlays.entries concat dedup by directory
                 new SoundsMergeStrategy(),        // sounds.json — checked before models/ to avoid shadowing
                 new ModelMergeStrategy(),         // models/**.json — overrides dedup by predicate
                 new BlockstateMergeStrategy(),    // blockstates/**.json — multipart cases dedup by when
