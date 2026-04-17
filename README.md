@@ -23,6 +23,8 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 - **Concurrent download limiting** — built-in rate limiter for the self-host HTTP server
 - **Plugin API + Bukkit events** — `PackMergedEvent`, `PackUploadedEvent`, `PackValidationFailedEvent`, etc. so other plugins can react without log-scraping
 - **Brigadier commands** — full tab completion via Paper's command API
+- **Lean jar + runtime dep loader** — the shipped jar is ~360 KB; MinIO and its S3-SDK transitive closure are downloaded from Maven Central on first enable into `plugins/PackMerger/libraries/` and verified against SHA-256. Cached across restarts.
+- **Update check** — polls `versions.json` in the repo on enable and surfaces new releases in the console and to admins on join. Advisory only; the plugin never auto-downloads.
 
 ## Requirements
 

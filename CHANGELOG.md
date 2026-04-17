@@ -4,7 +4,7 @@ All notable changes to PackMerger are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] — unreleased
+## [1.1.0] — 2026-04-16
 
 Operator-experience release. Correctness of the merge engine is settled from
 1.0.x; this one focuses on observability, validation, admin workflow, and
@@ -72,6 +72,15 @@ external integrations.
   Jar grows from ~270 KB to ~13 MB as a result; document in release notes.
 - **Two new `PluginLogger` categories:** `validation()` (light purple) and
   `remote()` (blue).
+- **Runtime dependency loader.** New `PackMergerLoader` downloads MinIO and
+  its transitive closure from Maven Central on first enable, verifies each
+  artifact against a build-time SHA-256, and loads them through an isolated
+  classloader. Cached in `plugins/PackMerger/libraries/` for subsequent
+  starts. Drops the shipped jar from ~13 MB to ~360 KB.
+- **Update check.** On enable, the plugin polls `versions.json` in the repo
+  to see if a newer release is available and surfaces it in the console +
+  as a chat notice to admins on join. Advisory only — no auto-download.
+  Config: `update-check.enabled` / `update-check.url`.
 
 ### Changed
 
@@ -88,8 +97,12 @@ external integrations.
 
 ### Dependencies
 
-- Added `io.minio:minio:8.5.10` (shaded, relocated to `sh.pcx.packmerger.libs.*`).
-- Transitive: OkHttp, Okio, BouncyCastle, Jackson, Xerial Snappy — all relocated.
+- MinIO Java SDK 8.5.10 + its transitive closure (OkHttp, Okio, Kotlin
+  stdlib, Jackson, BouncyCastle, Guava, Xerial Snappy) is now downloaded
+  at runtime by the loader rather than shaded into the plugin jar.
+  Manifest and SHA-256 digests live in `RuntimeDependencies.java`
+  (auto-generated at build time from the `runtimeDownload` Gradle
+  configuration).
 
 ## [1.0.5] — 2026-04-16
 
