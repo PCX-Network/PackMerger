@@ -1,6 +1,6 @@
 name: PackMerger
 version: '${version}'
-main: sh.pcx.packmerger.PackMerger
+main: sh.pcx.packmerger.loader.PackMergerLoader
 api-version: '1.21'
 author: PCX Network
 description: Merges multiple resource packs and hosts them externally

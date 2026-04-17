@@ -5,7 +5,7 @@ import net.kyori.adventure.resource.ResourcePackRequest;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.api.events.PackSentToPlayerEvent;
 import sh.pcx.packmerger.config.ConfigManager;
@@ -34,7 +34,7 @@ import java.util.UUID;
 public class PackDistributor {
 
     /** Reference to the owning plugin for state access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -45,9 +45,9 @@ public class PackDistributor {
     /**
      * Creates a new pack distributor.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PackDistributor(PackMerger plugin) {
+    public PackDistributor(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }

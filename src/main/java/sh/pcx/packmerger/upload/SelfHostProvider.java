@@ -2,7 +2,7 @@ package sh.pcx.packmerger.upload;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 
@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class SelfHostProvider implements UploadProvider {
 
     /** Reference to the owning plugin for config access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -65,9 +65,9 @@ public class SelfHostProvider implements UploadProvider {
     /**
      * Creates a new self-host provider.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public SelfHostProvider(PackMerger plugin) {
+    public SelfHostProvider(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }

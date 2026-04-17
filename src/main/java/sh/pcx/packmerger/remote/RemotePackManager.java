@@ -3,7 +3,7 @@ package sh.pcx.packmerger.remote;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 
 import java.io.File;
@@ -44,12 +44,12 @@ public class RemotePackManager {
 
     private static final Pattern ENV_VAR = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)\\}");
 
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
     private final PluginLogger logger;
     private final HttpClient client;
     private final File cacheDir;
 
-    public RemotePackManager(PackMerger plugin) {
+    public RemotePackManager(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.client = HttpClient.newBuilder()

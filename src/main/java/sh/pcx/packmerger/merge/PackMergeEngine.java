@@ -1,7 +1,7 @@
 package sh.pcx.packmerger.merge;
 
 import com.google.gson.JsonObject;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.merge.strategy.AtlasMergeStrategy;
 import sh.pcx.packmerger.merge.strategy.BlockstateMergeStrategy;
@@ -53,7 +53,7 @@ import sh.pcx.packmerger.PluginLogger;
 public class PackMergeEngine {
 
     /** Reference to the owning plugin for config access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -89,9 +89,9 @@ public class PackMergeEngine {
     /**
      * Creates a new merge engine instance.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PackMergeEngine(PackMerger plugin) {
+    public PackMergeEngine(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.mergeStrategies = List.of(

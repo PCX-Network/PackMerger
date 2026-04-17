@@ -8,7 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.scheduler.BukkitTask;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 
 import java.util.Map;
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PlayerJoinListener implements Listener {
 
     /** Reference to the owning plugin for component access and config. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -49,9 +49,9 @@ public class PlayerJoinListener implements Listener {
     /**
      * Creates a new player join listener.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PlayerJoinListener(PackMerger plugin) {
+    public PlayerJoinListener(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }
@@ -75,7 +75,7 @@ public class PlayerJoinListener implements Listener {
         int delay = plugin.getConfigManager().getJoinDelayTicks();
 
         // Schedule the pack send after the configured delay
-        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin.getLoader(), () -> {
             pendingTasks.remove(player.getUniqueId());
             // Verify the player is still online (they may have disconnected during the delay)
             if (player.isOnline()) {

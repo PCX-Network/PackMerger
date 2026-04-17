@@ -44,7 +44,7 @@ public class PluginLogger {
         }
     }
 
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
     private LogLevel minLevel;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
@@ -54,7 +54,7 @@ public class PluginLogger {
      * @param plugin the owning plugin instance (used for stack trace logging)
      * @param level  the minimum log level as a string (e.g. "info", "debug")
      */
-    public PluginLogger(PackMerger plugin, String level) {
+    public PluginLogger(PackMergerBootstrap plugin, String level) {
         this.plugin = plugin;
         this.minLevel = LogLevel.fromString(level);
     }

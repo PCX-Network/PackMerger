@@ -12,7 +12,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.merge.MergeProvenance;
 import sh.pcx.packmerger.merge.PackValidator;
@@ -51,7 +51,7 @@ import java.util.List;
 public class PackMergerCommand {
 
     /** Reference to the owning plugin for component access. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /**
      * Creates the command handler and registers all commands.
@@ -59,9 +59,9 @@ public class PackMergerCommand {
      * <p>Registration happens immediately in the constructor via Paper's lifecycle
      * event system.</p>
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PackMergerCommand(PackMerger plugin) {
+    public PackMergerCommand(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         register();
     }
@@ -182,11 +182,11 @@ public class PackMergerCommand {
         sender.sendMessage(msg.getMessage("validate.starting"));
 
         // Run validation off the main thread to avoid blocking the server
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
             PackValidator.ValidationResult result = plugin.getValidator().validate(outputFile);
 
             // Return to the main thread to send player messages
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
                 sender.sendMessage(msg.getMessage("validate.complete",
                         "warnings", String.valueOf(result.warnings()),
                         "errors", String.valueOf(result.errors())));
@@ -376,9 +376,9 @@ public class PackMergerCommand {
             sender.sendMessage(MINI.deserialize("<gray>No remote packs configured.</gray>"));
             return 1;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
             List<FetchResult> results = rpm.fetchAll(specs, RemotePackManager.Trigger.MANUAL);
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
                 for (FetchResult r : results) {
                     sender.sendMessage(MINI.deserialize(fetchLine(r)));
                 }
@@ -402,9 +402,9 @@ public class PackMergerCommand {
                     + alias + "</white></red>"));
             return 0;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
             FetchResult result = plugin.getRemotePackManager().fetch(spec);
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
                 sender.sendMessage(MINI.deserialize(fetchLine(result)));
                 sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed pack…</gray>"));
                 plugin.mergeAndUpload(sender);

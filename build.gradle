@@ -19,20 +19,78 @@ repositories {
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
 }
 
+// Declarative list of dependencies the PackMergerLoader downloads at runtime
+// from Maven Central instead of bundling into the shaded jar. Kept in a
+// dedicated configuration so the generator task below resolves exactly the
+// transitive closure and nothing else.
+configurations {
+    runtimeDownload
+}
+
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
 
+    // Commons-compress stays shaded — small, zip-adjacent, loaded on the
+    // critical path. Not worth the runtime-download indirection.
     implementation 'org.apache.commons:commons-compress:1.27.1'
 
-    // MinIO Java SDK — covers AWS S3, Cloudflare R2, Backblaze B2 (all speak the
-    // S3 API). Pulls OkHttp + Okio transitively; relocated below.
-    implementation 'io.minio:minio:8.5.10'
+    // MinIO (S3 upload provider). compileOnly for compilation; runtimeDownload
+    // for the loader to pull at startup. Transitive closure is resolved from
+    // the runtimeDownload configuration and shipped in RuntimeDependencies.java.
+    compileOnly 'io.minio:minio:8.5.10'
+    runtimeDownload 'io.minio:minio:8.5.10'
 
     // Gson ships with paper-api at runtime; the test classpath needs it explicitly.
     testImplementation 'com.google.code.gson:gson:2.11.0'
     testImplementation platform('org.junit:junit-bom:5.11.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Generates RuntimeDependencies.java into build/generated/ from the
+// runtimeDownload configuration's resolved artifacts. Each entry is
+// { groupId, artifactId, version, base64(sha256(jarBytes)) } — the loader
+// uses this to download + verify on first start.
+def generatedDepsDir = layout.buildDirectory.dir('generated/sources/runtime-deps')
+
+def generateRuntimeDependencies = tasks.register('generateRuntimeDependencies') {
+    inputs.files(configurations.runtimeDownload)
+    outputs.dir(generatedDepsDir)
+    doLast {
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        def entries = configurations.runtimeDownload.resolvedConfiguration.resolvedArtifacts.collect { art ->
+            digest.reset()
+            def sha = digest.digest(art.file.bytes).encodeBase64().toString()
+            [art.moduleVersion.id.group, art.name, art.moduleVersion.id.version, sha]
+        }.sort { a, b -> (a[0] + ':' + a[1]) <=> (b[0] + ':' + b[1]) }
+
+        def target = generatedDepsDir.get().file('sh/pcx/packmerger/loader/RuntimeDependencies.java').asFile
+        target.parentFile.mkdirs()
+        def sb = new StringBuilder()
+        sb << 'package sh.pcx.packmerger.loader;\n\n'
+        sb << '/**\n'
+        sb << ' * Auto-generated at build time; do not edit by hand.\n'
+        sb << ' * Runtime dependency manifest + SHA-256 (base64) digests for the\n'
+        sb << ' * PackMergerLoader. Regenerated on every build from the "runtimeDownload"\n'
+        sb << ' * Gradle configuration so it always reflects the actual resolved closure.\n'
+        sb << ' */\n'
+        sb << 'final class RuntimeDependencies {\n\n'
+        sb << '    private RuntimeDependencies() {}\n\n'
+        sb << '    /** {groupId, artifactId, version, base64(sha256(jarBytes))} tuples. */\n'
+        sb << '    static final String[][] DEPENDENCIES = {\n'
+        entries.each { e ->
+            sb << "            { \"${e[0]}\", \"${e[1]}\", \"${e[2]}\", \"${e[3]}\" },\n"
+        }
+        sb << '    };\n'
+        sb << '}\n'
+        target.text = sb.toString()
+    }
+}
+
+sourceSets.main.java.srcDir(generateRuntimeDependencies.map { generatedDepsDir })
+
+tasks.named('compileJava') {
+    dependsOn generateRuntimeDependencies
 }
 
 tasks.named('test') {
@@ -42,16 +100,6 @@ tasks.named('test') {
 tasks.named('shadowJar') {
     archiveClassifier.set('')
     relocate 'org.apache.commons.compress', 'sh.pcx.packmerger.libs.commons.compress'
-
-    // MinIO + its transitive runtime. Relocating prevents conflicts with other
-    // plugins that bundle different versions of OkHttp/Okio/Gson/Jackson/Xerces.
-    relocate 'io.minio',         'sh.pcx.packmerger.libs.minio'
-    relocate 'okhttp3',          'sh.pcx.packmerger.libs.okhttp3'
-    relocate 'okio',             'sh.pcx.packmerger.libs.okio'
-    relocate 'org.bouncycastle', 'sh.pcx.packmerger.libs.bouncycastle'
-    relocate 'com.fasterxml.jackson', 'sh.pcx.packmerger.libs.jackson'
-    relocate 'org.xerial.snappy',     'sh.pcx.packmerger.libs.snappy'
-    relocate 'org.apache.http',       'sh.pcx.packmerger.libs.apache.http'
 
     mergeServiceFiles()
     minimize()

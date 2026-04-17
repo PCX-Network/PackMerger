@@ -1,6 +1,10 @@
 package sh.pcx.packmerger;
 
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Server;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import sh.pcx.packmerger.api.PackMergerApi;
 import sh.pcx.packmerger.api.events.PackMergeStartedEvent;
@@ -36,6 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
  * Main plugin class for PackMerger — a Paper plugin that merges multiple Minecraft resource
@@ -55,7 +60,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see UploadProvider
  * @see ConfigManager
  */
-public class PackMerger extends JavaPlugin implements PackMergerApi {
+public class PackMergerBootstrap implements PackMergerApi {
+
+    /**
+     * The JavaPlugin entry point (typically {@link sh.pcx.packmerger.loader.PackMergerLoader})
+     * that the server registered. All Bukkit-API access is routed through this
+     * reference because the Bootstrap itself is a plain class living inside the
+     * loader's isolated classloader.
+     */
+    private JavaPlugin loader;
 
     /** Manages loading and access to all plugin configuration values. */
     private ConfigManager configManager;
@@ -105,8 +118,13 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
      */
     private final AtomicBoolean merging = new AtomicBoolean(false);
 
-    @Override
-    public void onEnable() {
+    /** Invoked by the loader during its {@code onLoad()}. Captures the JavaPlugin reference. */
+    public void onLoad(JavaPlugin loader) {
+        this.loader = loader;
+    }
+
+    public void onEnable(JavaPlugin loader) {
+        this.loader = loader;
         // Initialize config first — all other components depend on it
         configManager = new ConfigManager(this);
         configManager.load();
@@ -152,11 +170,11 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         new PackMergerCommand(this);
 
         // Register event listeners for player join and resource pack status tracking
-        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(this), loader);
 
         // Periodically save the player cache to disk every 5 minutes (6000 ticks)
         // to prevent data loss on unclean shutdowns
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> cacheManager.save(), 6000L, 6000L);
+        Bukkit.getScheduler().runTaskTimerAsynchronously(loader, () -> cacheManager.save(), 6000L, 6000L);
 
         logger.info("PackMerger enabled!");
 
@@ -170,8 +188,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         startFileWatcher();
     }
 
-    @Override
-    public void onDisable() {
+    public void onDisable(JavaPlugin loader) {
         // Stop the file watcher thread first to prevent new merges from starting
         stopFileWatcher();
 
@@ -186,7 +203,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
         }
 
         // Cancel any remaining scheduled tasks (cache save timer, pending join delays, etc.)
-        Bukkit.getScheduler().cancelTasks(this);
+        Bukkit.getScheduler().cancelTasks(loader);
 
         logger.info("PackMerger disabled!");
     }
@@ -284,7 +301,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
                 File mergedTemp = mergeEngine.merge(tempOutputFile);
                 if (mergedTemp == null) {
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(this, () ->
+                        Bukkit.getScheduler().runTask(loader, () ->
                                 sender.sendMessage(messageManager.getMessage("merge.failed-no-packs")));
                     }
                     return;
@@ -319,7 +336,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
                     restoreProvenanceFrom(finalOutputFile);
                     Bukkit.getPluginManager().callEvent(new PackValidationFailedEvent(validationResult, true));
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(this, () ->
+                        Bukkit.getScheduler().runTask(loader, () ->
                                 sender.sendMessage(messageManager.getMessage("merge.failed",
                                         "error", "validation failed; previous pack preserved")));
                     }
@@ -344,7 +361,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
                     safeDelete(tempOutputFile);
                     safeDelete(PackMergeEngine.provenanceSidecar(tempOutputFile));
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(this, () ->
+                        Bukkit.getScheduler().runTask(loader, () ->
                                 sender.sendMessage(messageManager.getMessage("merge.failed",
                                         "error", ioe.getMessage())));
                     }
@@ -378,7 +395,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
 
                         if (sender != null) {
                             // Return to main thread for player messaging
-                            Bukkit.getScheduler().runTask(this, () ->
+                            Bukkit.getScheduler().runTask(loader, () ->
                                     sender.sendMessage(messageManager.getMessage("merge.upload-complete",
                                             "url", url)));
                         }
@@ -386,27 +403,27 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
                         // Step 5: If the pack actually changed, handle online players
                         if (isNewPack) {
                             // Must run on main thread — player API calls are not thread-safe
-                            Bukkit.getScheduler().runTask(this, () -> distributor.onNewPack());
+                            Bukkit.getScheduler().runTask(loader, () -> distributor.onNewPack());
                         }
                     } catch (Exception e) {
                         logger.error("Upload failed", e);
                         Bukkit.getPluginManager().callEvent(new PackUploadFailedEvent(e));
                         if (sender != null) {
-                            Bukkit.getScheduler().runTask(this, () ->
+                            Bukkit.getScheduler().runTask(loader, () ->
                                     sender.sendMessage(messageManager.getMessage("merge.upload-failed",
                                             "error", e.getMessage())));
                         }
                     }
                 } else {
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(this, () ->
+                        Bukkit.getScheduler().runTask(loader, () ->
                                 sender.sendMessage(messageManager.getMessage("merge.complete-no-upload")));
                     }
                 }
             } catch (Exception e) {
                 logger.error("Merge failed", e);
                 if (sender != null) {
-                    Bukkit.getScheduler().runTask(this, () ->
+                    Bukkit.getScheduler().runTask(loader, () ->
                             sender.sendMessage(messageManager.getMessage("merge.failed",
                                     "error", e.getMessage())));
                 }
@@ -596,6 +613,32 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
     }
 
     // -------------------------------------------------------------------------
+    // JavaPlugin delegates — so the rest of the codebase can keep calling
+    // plugin.getConfig() / plugin.getLogger() / plugin.getDataFolder() without
+    // learning that the Bootstrap is no longer a JavaPlugin. Every delegate
+    // forwards to the loader that the server actually registered.
+    // -------------------------------------------------------------------------
+
+    /** @return the JavaPlugin that the server registered (the loader instance) */
+    public JavaPlugin getLoader() { return loader; }
+
+    public FileConfiguration getConfig() { return loader.getConfig(); }
+
+    public void saveDefaultConfig() { loader.saveDefaultConfig(); }
+
+    public void reloadConfig() { loader.reloadConfig(); }
+
+    public void saveConfig() { loader.saveConfig(); }
+
+    public Logger getLogger() { return loader.getLogger(); }
+
+    public Server getServer() { return loader.getServer(); }
+
+    public LifecycleEventManager<Plugin> getLifecycleManager() { return loader.getLifecycleManager(); }
+
+    public void saveResource(String resourcePath, boolean replace) { loader.saveResource(resourcePath, replace); }
+
+    // -------------------------------------------------------------------------
     // Directory helpers — all paths are relative to the plugin's data folder
     // -------------------------------------------------------------------------
 
@@ -605,8 +648,11 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
      * @return {@code plugins/PackMerger/packs/}
      */
     public File getPacksFolder() {
-        return new File(getDataFolder(), "packs");
+        return new File(loader.getDataFolder(), "packs");
     }
+
+    /** @return the plugin's data folder (delegate to loader) */
+    public File getDataFolder() { return loader.getDataFolder(); }
 
     /**
      * Returns the directory where merged pack output is written.
@@ -614,7 +660,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
      * @return {@code plugins/PackMerger/output/}
      */
     public File getOutputFolder() {
-        return new File(getDataFolder(), "output");
+        return new File(loader.getDataFolder(), "output");
     }
 
     /**
@@ -623,7 +669,7 @@ public class PackMerger extends JavaPlugin implements PackMergerApi {
      * @return {@code plugins/PackMerger/cache/}
      */
     public File getCacheFolder() {
-        return new File(getDataFolder(), "cache");
+        return new File(loader.getDataFolder(), "cache");
     }
 
     /**

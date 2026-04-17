@@ -3,7 +3,7 @@ package sh.pcx.packmerger.distribution;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 
 import java.io.*;
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PlayerCacheManager {
 
     /** Reference to the owning plugin for config access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -56,9 +56,9 @@ public class PlayerCacheManager {
     /**
      * Creates a new player cache manager.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PlayerCacheManager(PackMerger plugin) {
+    public PlayerCacheManager(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.cacheFile = new File(plugin.getCacheFolder(), "player-cache.json");

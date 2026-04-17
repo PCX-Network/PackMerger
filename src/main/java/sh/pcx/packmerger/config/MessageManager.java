@@ -3,7 +3,7 @@ package sh.pcx.packmerger.config;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.configuration.file.YamlConfiguration;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 
 import java.io.File;
 
@@ -16,11 +16,11 @@ import java.io.File;
  */
 public class MessageManager {
 
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private YamlConfiguration messages;
 
-    public MessageManager(PackMerger plugin) {
+    public MessageManager(PackMergerBootstrap plugin) {
         this.plugin = plugin;
     }
 

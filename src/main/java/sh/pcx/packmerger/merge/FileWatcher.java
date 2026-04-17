@@ -1,6 +1,6 @@
 package sh.pcx.packmerger.merge;
 
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -28,7 +28,7 @@ import sh.pcx.packmerger.PluginLogger;
 public class FileWatcher {
 
     /** Reference to the owning plugin for triggering merges and reading config. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -45,9 +45,9 @@ public class FileWatcher {
     /**
      * Creates a new file watcher bound to the given plugin.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public FileWatcher(PackMerger plugin) {
+    public FileWatcher(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }

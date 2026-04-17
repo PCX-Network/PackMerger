@@ -8,7 +8,7 @@ import io.minio.Result;
 import io.minio.UploadObjectArgs;
 import io.minio.http.Method;
 import io.minio.messages.Item;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.remote.RemotePackManager;
@@ -47,12 +47,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class S3UploadProvider implements UploadProvider {
 
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
     private final PluginLogger logger;
     private final MinioClient client;
     private final ConfigManager.S3Config cfg;
 
-    public S3UploadProvider(PackMerger plugin) {
+    public S3UploadProvider(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.cfg = plugin.getConfigManager().getS3Config();

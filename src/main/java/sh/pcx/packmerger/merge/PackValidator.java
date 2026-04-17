@@ -9,7 +9,7 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 
 /**
@@ -40,7 +40,7 @@ import sh.pcx.packmerger.PluginLogger;
 public class PackValidator {
 
     /** Reference to the owning plugin for config access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -48,9 +48,9 @@ public class PackValidator {
     /**
      * Creates a new pack validator.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PackValidator(PackMerger plugin) {
+    public PackValidator(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }

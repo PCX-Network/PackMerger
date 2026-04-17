@@ -2,7 +2,7 @@ package sh.pcx.packmerger.config;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.remote.RemoteSpec;
 
 import java.io.File;
@@ -28,7 +28,7 @@ import java.util.logging.Level;
 public class ConfigManager {
 
     /** Reference to the owning plugin instance, used to access Bukkit config API. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     // -------------------------------------------------------------------------
     // General
@@ -193,9 +193,9 @@ public class ConfigManager {
     /**
      * Creates a new configuration manager bound to the given plugin instance.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public ConfigManager(PackMerger plugin) {
+    public ConfigManager(PackMergerBootstrap plugin) {
         this.plugin = plugin;
     }
 

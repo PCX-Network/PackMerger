@@ -1,6 +1,6 @@
 package sh.pcx.packmerger.upload;
 
-import sh.pcx.packmerger.PackMerger;
+import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 import sh.pcx.packmerger.config.ConfigManager;
 
@@ -36,7 +36,7 @@ import java.time.Duration;
 public class PolymathUploadProvider implements UploadProvider {
 
     /** Reference to the owning plugin for config access and logging. */
-    private final PackMerger plugin;
+    private final PackMergerBootstrap plugin;
 
     /** Colored console logger. */
     private final PluginLogger logger;
@@ -44,9 +44,9 @@ public class PolymathUploadProvider implements UploadProvider {
     /**
      * Creates a new Polymath upload provider.
      *
-     * @param plugin the owning PackMerger plugin
+     * @param plugin the owning PackMergerBootstrap plugin
      */
-    public PolymathUploadProvider(PackMerger plugin) {
+    public PolymathUploadProvider(PackMergerBootstrap plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
     }
