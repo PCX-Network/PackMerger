@@ -1,13 +1,12 @@
 package sh.pcx.packmerger.listeners;
 
-import org.bukkit.Bukkit;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
-import org.bukkit.scheduler.BukkitTask;
 import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
 
@@ -44,7 +43,7 @@ public class PlayerJoinListener implements Listener {
      * sent the pack yet (waiting for the join delay). Mapped by player UUID so
      * the task can be cancelled if the player disconnects before the delay expires.
      */
-    private final Map<UUID, BukkitTask> pendingTasks = new ConcurrentHashMap<>();
+    private final Map<UUID, ScheduledTask> pendingTasks = new ConcurrentHashMap<>();
 
     /**
      * Creates a new player join listener.
@@ -83,19 +82,23 @@ public class PlayerJoinListener implements Listener {
 
         if (!plugin.getConfigManager().isDistributionEnabled()) return;
 
-        int delay = plugin.getConfigManager().getJoinDelayTicks();
+        long delay = plugin.getConfigManager().getJoinDelayTicks();
 
-        // Schedule the pack send after the configured delay
-        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin.getLoader(), () -> {
-            pendingTasks.remove(player.getUniqueId());
-            // Verify the player is still online (they may have disconnected during the delay)
-            if (player.isOnline()) {
-                plugin.getDistributor().sendPack(player, false);
-            }
-        }, delay);
+        // Schedule the pack send on the PLAYER's region thread — Folia-safe and
+        // Paper-compatible. The entity scheduler automatically retires the task
+        // if the player disconnects before the delay fires, but we still clean
+        // up pendingTasks on quit for belt-and-braces.
+        ScheduledTask task = player.getScheduler().runDelayed(plugin.getLoader(),
+                scheduled -> {
+                    pendingTasks.remove(player.getUniqueId());
+                    if (player.isOnline()) {
+                        plugin.getDistributor().sendPack(player, false);
+                    }
+                },
+                () -> pendingTasks.remove(player.getUniqueId()),
+                Math.max(1, delay));
 
-        // Track the task so it can be cancelled if the player disconnects
-        pendingTasks.put(player.getUniqueId(), task);
+        if (task != null) pendingTasks.put(player.getUniqueId(), task);
     }
 
     /**
@@ -142,7 +145,7 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        BukkitTask task = pendingTasks.remove(uuid);
+        ScheduledTask task = pendingTasks.remove(uuid);
         if (task != null) {
             task.cancel();
         }

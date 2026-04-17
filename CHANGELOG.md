@@ -81,6 +81,13 @@ external integrations.
   to see if a newer release is available and surfaces it in the console +
   as a chat notice to admins on join. Advisory only — no auto-download.
   Config: `update-check.enabled` / `update-check.url`.
+- **Actual Folia support.** Swapped every `BukkitScheduler` call to the
+  right Folia scheduler (AsyncScheduler for periodic async work,
+  GlobalRegionScheduler / entity scheduler where a specific thread matters).
+  `PackDistributor.sendPack` now self-schedules on the player's region so
+  callers don't have to know about threading. `plugin.yml` declares
+  `folia-supported: true`. Paper behavior is unchanged — the scheduler
+  APIs we use exist on both.
 
 ### Changed
 

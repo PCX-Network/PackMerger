@@ -40,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
@@ -186,9 +187,11 @@ public class PackMergerBootstrap implements PackMergerApi {
         // Register event listeners for player join and resource pack status tracking
         Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(this), loader);
 
-        // Periodically save the player cache to disk every 5 minutes (6000 ticks)
-        // to prevent data loss on unclean shutdowns
-        Bukkit.getScheduler().runTaskTimerAsynchronously(loader, () -> cacheManager.save(), 6000L, 6000L);
+        // Periodically save the player cache to disk every 5 minutes to prevent
+        // data loss on unclean shutdowns. Uses AsyncScheduler so it works on
+        // both Paper and Folia (BukkitScheduler throws on Folia).
+        Bukkit.getAsyncScheduler().runAtFixedRate(loader, task -> cacheManager.save(),
+                5, 5, TimeUnit.MINUTES);
 
         logger.info("PackMerger enabled!");
 
@@ -216,8 +219,11 @@ public class PackMergerBootstrap implements PackMergerApi {
             cacheManager.save();
         }
 
-        // Cancel any remaining scheduled tasks (cache save timer, pending join delays, etc.)
-        Bukkit.getScheduler().cancelTasks(loader);
+        // Cancel any outstanding async tasks (the global-region and entity
+        // schedulers auto-cancel on plugin disable, so they don't need
+        // explicit cleanup). BukkitScheduler.cancelTasks is deliberately
+        // avoided here — it throws UnsupportedOperationException on Folia.
+        Bukkit.getAsyncScheduler().cancelTasks(loader);
 
         logger.info("PackMerger disabled!");
     }
@@ -272,8 +278,10 @@ public class PackMergerBootstrap implements PackMergerApi {
      *
      * <p>Only one merge can run at a time — if a merge is already in progress, the caller
      * is notified and the request is ignored. The merge work runs off the main thread via
-     * {@link CompletableFuture#runAsync}, but player-facing messages and distribution
-     * callbacks are dispatched back to the main thread using {@code Bukkit.getScheduler().runTask}.</p>
+     * {@link CompletableFuture#runAsync}. Player-facing messages go through Adventure
+     * (which is thread-safe), and {@link PackDistributor#sendPack} self-schedules on
+     * each player's region thread — so no explicit main-thread dispatch is needed here.
+     * This keeps the method Folia-compatible.</p>
      *
      * <p>Pipeline steps:</p>
      * <ol>
@@ -315,8 +323,7 @@ public class PackMergerBootstrap implements PackMergerApi {
                 File mergedTemp = mergeEngine.merge(tempOutputFile);
                 if (mergedTemp == null) {
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(loader, () ->
-                                sender.sendMessage(messageManager.getMessage("merge.failed-no-packs")));
+                        sender.sendMessage(messageManager.getMessage("merge.failed-no-packs"));
                     }
                     return;
                 }
@@ -350,9 +357,8 @@ public class PackMergerBootstrap implements PackMergerApi {
                     restoreProvenanceFrom(finalOutputFile);
                     Bukkit.getPluginManager().callEvent(new PackValidationFailedEvent(validationResult, true));
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(loader, () ->
-                                sender.sendMessage(messageManager.getMessage("merge.failed",
-                                        "error", "validation failed; previous pack preserved")));
+                        sender.sendMessage(messageManager.getMessage("merge.failed",
+                                "error", "validation failed; previous pack preserved"));
                     }
                     return;
                 }
@@ -375,9 +381,8 @@ public class PackMergerBootstrap implements PackMergerApi {
                     safeDelete(tempOutputFile);
                     safeDelete(PackMergeEngine.provenanceSidecar(tempOutputFile));
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(loader, () ->
-                                sender.sendMessage(messageManager.getMessage("merge.failed",
-                                        "error", ioe.getMessage())));
+                        sender.sendMessage(messageManager.getMessage("merge.failed",
+                                        "error", ioe.getMessage()));
                     }
                     return;
                 }
@@ -409,37 +414,34 @@ public class PackMergerBootstrap implements PackMergerApi {
 
                         if (sender != null) {
                             // Return to main thread for player messaging
-                            Bukkit.getScheduler().runTask(loader, () ->
-                                    sender.sendMessage(messageManager.getMessage("merge.upload-complete",
-                                            "url", url)));
+                            sender.sendMessage(messageManager.getMessage("merge.upload-complete",
+                                            "url", url));
                         }
 
-                        // Step 5: If the pack actually changed, handle online players
+                        // Step 5: If the pack actually changed, handle online players.
+                        // PackDistributor.sendPack() self-schedules on the player's region,
+                        // so onNewPack() is safe to call from the async merge thread.
                         if (isNewPack) {
-                            // Must run on main thread — player API calls are not thread-safe
-                            Bukkit.getScheduler().runTask(loader, () -> distributor.onNewPack());
+                            distributor.onNewPack();
                         }
                     } catch (Exception e) {
                         logger.error("Upload failed", e);
                         Bukkit.getPluginManager().callEvent(new PackUploadFailedEvent(e));
                         if (sender != null) {
-                            Bukkit.getScheduler().runTask(loader, () ->
-                                    sender.sendMessage(messageManager.getMessage("merge.upload-failed",
-                                            "error", e.getMessage())));
+                            sender.sendMessage(messageManager.getMessage("merge.upload-failed",
+                                            "error", e.getMessage()));
                         }
                     }
                 } else {
                     if (sender != null) {
-                        Bukkit.getScheduler().runTask(loader, () ->
-                                sender.sendMessage(messageManager.getMessage("merge.complete-no-upload")));
+                        sender.sendMessage(messageManager.getMessage("merge.complete-no-upload"));
                     }
                 }
             } catch (Exception e) {
                 logger.error("Merge failed", e);
                 if (sender != null) {
-                    Bukkit.getScheduler().runTask(loader, () ->
-                            sender.sendMessage(messageManager.getMessage("merge.failed",
-                                    "error", e.getMessage())));
+                    sender.sendMessage(messageManager.getMessage("merge.failed",
+                                    "error", e.getMessage()));
                 }
             } finally {
                 // Always release the merge lock, even on failure

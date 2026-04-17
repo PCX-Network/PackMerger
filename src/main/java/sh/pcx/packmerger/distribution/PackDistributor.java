@@ -95,19 +95,25 @@ public class PackDistributor {
             return;
         }
 
+        // Schedule the actual Bukkit API calls on the PLAYER's region thread —
+        // required by Folia, compatible with Paper. Callers can invoke this method
+        // from any thread without worrying about region-scheduling themselves.
+        player.getScheduler().run(plugin.getLoader(), scheduled ->
+                deliver(player, config, url, hash, hashHex, bypassCache), null);
+    }
+
+    /** Runs on the player's region thread. All Bukkit entity API calls live here. */
+    private void deliver(Player player, ConfigManager config, String url, byte[] hash,
+                         String hashHex, boolean bypassCache) {
         try {
-            // Generate a deterministic UUID from the SHA-1 hash so the same pack always
-            // produces the same UUID, enabling Minecraft's client-side pack caching
             UUID packUuid = UUID.nameUUIDFromBytes(hash);
 
-            // Parse the optional custom prompt message (MiniMessage format)
             net.kyori.adventure.text.Component prompt = null;
             String promptMsg = config.getPromptMessage();
             if (promptMsg != null && !promptMsg.isEmpty()) {
                 prompt = miniMessage.deserialize(promptMsg);
             }
 
-            // Build the resource pack info with URL, hash, and UUID
             ResourcePackInfo packInfo = ResourcePackInfo.resourcePackInfo()
                     .uri(URI.create(url))
                     .hash(hashHex)
@@ -118,15 +124,11 @@ public class PackDistributor {
                     .packs(packInfo)
                     .required(config.isRequired());
 
-            if (prompt != null) {
-                requestBuilder.prompt(prompt);
-            }
+            if (prompt != null) requestBuilder.prompt(prompt);
 
             if (config.isUseAddResourcePack()) {
-                // Add this pack alongside any existing packs the player has loaded
                 player.sendResourcePacks(requestBuilder.build());
             } else {
-                // Replace all existing packs with this one (default behavior)
                 player.clearResourcePacks();
                 player.sendResourcePacks(requestBuilder.build());
             }

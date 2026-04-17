@@ -28,9 +28,9 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 
 ## Requirements
 
-- **Paper 1.21+** (built against Paper API 1.21.4)
+- **Paper 1.21+** (built against Paper API 1.21.4) or **Folia** 1.21+
 - **Java 21** or newer
-- Tested on Paper and Folia-compatible forks
+- `folia-supported: true` in plugin.yml — every scheduler call routes through Paper/Folia's region-aware APIs so the plugin runs without `UnsupportedOperationException`s on Folia
 
 ## Installation
 

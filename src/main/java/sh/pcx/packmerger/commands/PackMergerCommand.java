@@ -181,28 +181,23 @@ public class PackMergerCommand {
 
         sender.sendMessage(msg.getMessage("validate.starting"));
 
-        // Run validation off the main thread to avoid blocking the server
-        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
+        // Run validation off the main thread so large packs don't block ticks.
+        // Adventure's sendMessage is thread-safe, so we can message the sender
+        // directly from the async task — no main-thread hop needed.
+        Bukkit.getAsyncScheduler().runNow(plugin.getLoader(), asyncTask -> {
             PackValidator.ValidationResult result = plugin.getValidator().validate(outputFile);
-
-            // Return to the main thread to send player messages
-            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
-                sender.sendMessage(msg.getMessage("validate.complete",
-                        "warnings", String.valueOf(result.warnings()),
-                        "errors", String.valueOf(result.errors())));
-
-                if (!result.messages().isEmpty()) {
-                    for (String line : result.messages()) {
-                        if (line.startsWith("ERROR:")) {
-                            sender.sendMessage(msg.getMessage("validate.error-line",
-                                    "message", line));
-                        } else {
-                            sender.sendMessage(msg.getMessage("validate.warning-line",
-                                    "message", line));
-                        }
+            sender.sendMessage(msg.getMessage("validate.complete",
+                    "warnings", String.valueOf(result.warnings()),
+                    "errors", String.valueOf(result.errors())));
+            if (!result.messages().isEmpty()) {
+                for (String line : result.messages()) {
+                    if (line.startsWith("ERROR:")) {
+                        sender.sendMessage(msg.getMessage("validate.error-line", "message", line));
+                    } else {
+                        sender.sendMessage(msg.getMessage("validate.warning-line", "message", line));
                     }
                 }
-            });
+            }
         });
 
         return 1;
@@ -376,15 +371,13 @@ public class PackMergerCommand {
             sender.sendMessage(MINI.deserialize("<gray>No remote packs configured.</gray>"));
             return 1;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
+        Bukkit.getAsyncScheduler().runNow(plugin.getLoader(), asyncTask -> {
             List<FetchResult> results = rpm.fetchAll(specs, RemotePackManager.Trigger.MANUAL);
-            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
-                for (FetchResult r : results) {
-                    sender.sendMessage(MINI.deserialize(fetchLine(r)));
-                }
-                sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed packs…</gray>"));
-                plugin.mergeAndUpload(sender);
-            });
+            for (FetchResult r : results) {
+                sender.sendMessage(MINI.deserialize(fetchLine(r)));
+            }
+            sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed packs…</gray>"));
+            plugin.mergeAndUpload(sender);
         });
         return 1;
     }
@@ -402,13 +395,11 @@ public class PackMergerCommand {
                     + alias + "</white></red>"));
             return 0;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin.getLoader(), () -> {
+        Bukkit.getAsyncScheduler().runNow(plugin.getLoader(), asyncTask -> {
             FetchResult result = plugin.getRemotePackManager().fetch(spec);
-            Bukkit.getScheduler().runTask(plugin.getLoader(), () -> {
-                sender.sendMessage(MINI.deserialize(fetchLine(result)));
-                sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed pack…</gray>"));
-                plugin.mergeAndUpload(sender);
-            });
+            sender.sendMessage(MINI.deserialize(fetchLine(result)));
+            sender.sendMessage(MINI.deserialize("<gray>Triggering merge with refreshed pack…</gray>"));
+            plugin.mergeAndUpload(sender);
         });
         return 1;
     }
