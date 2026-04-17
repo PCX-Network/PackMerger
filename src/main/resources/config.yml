@@ -513,3 +513,18 @@ validation:
 #
 # Default: "info"
 log-level: "info"
+
+# =============================================================================
+# Update Check
+# =============================================================================
+
+# PackMerger polls a small versions.json file in the GitHub repo on enable to
+# see if a newer release is available. Results are logged to the console and
+# admins see a one-line chat notice on join. No auto-download; everything is
+# advisory.
+#
+# Disable this if your server doesn't have outbound internet or you don't want
+# the startup HTTP call.
+update-check:
+  enabled: true
+  url: "https://raw.githubusercontent.com/PCX-Network/PackMerger/main/versions.json"

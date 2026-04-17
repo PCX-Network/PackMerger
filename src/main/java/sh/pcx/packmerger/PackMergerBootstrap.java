@@ -24,6 +24,7 @@ import sh.pcx.packmerger.merge.PackMergeEngine;
 import sh.pcx.packmerger.merge.PackValidator;
 import sh.pcx.packmerger.remote.FetchResult;
 import sh.pcx.packmerger.remote.RemotePackManager;
+import sh.pcx.packmerger.update.UpdateChecker;
 import sh.pcx.packmerger.upload.PolymathUploadProvider;
 import sh.pcx.packmerger.upload.S3UploadProvider;
 import sh.pcx.packmerger.upload.SelfHostProvider;
@@ -100,6 +101,9 @@ public class PackMergerBootstrap implements PackMergerApi {
     /** Fetches remote pack sources into {@code packs/.remote-cache/}. */
     private RemotePackManager remotePackManager;
 
+    /** Checks for newer PackMerger releases on enable. */
+    private UpdateChecker updateChecker;
+
     /** The public download URL of the most recently uploaded merged pack, or {@code null} if no merge has completed. */
     private String currentPackUrl;
 
@@ -148,6 +152,16 @@ public class PackMergerBootstrap implements PackMergerApi {
         cacheManager.load();
         distributor = new PackDistributor(this);
         remotePackManager = new RemotePackManager(this);
+        updateChecker = new UpdateChecker(this);
+
+        // Poll versions.json off the main thread so a slow GitHub response
+        // doesn't delay enable. Failures are logged at DEBUG and silently
+        // dropped — update-check is informational, never load-bearing.
+        if (configManager.isUpdateCheckEnabled()) {
+            CompletableFuture.runAsync(() ->
+                    updateChecker.checkNow(configManager.getUpdateCheckUrl(),
+                            loader.getPluginMeta().getVersion()));
+        }
 
         // Fetch on-startup remote packs before the first merge so they're
         // available from discovery. Runs async so onEnable doesn't stall on
@@ -490,6 +504,9 @@ public class PackMergerBootstrap implements PackMergerApi {
 
     /** @return the remote pack manager, or {@code null} before onEnable completes */
     public RemotePackManager getRemotePackManager() { return remotePackManager; }
+
+    /** @return the update checker, or {@code null} before onEnable completes */
+    public UpdateChecker getUpdateChecker() { return updateChecker; }
 
     /** Shared helper to log a batch of fetch outcomes at the right severity. */
     private void logRemoteFetchResults(List<FetchResult> results) {

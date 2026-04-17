@@ -190,6 +190,16 @@ public class ConfigManager {
     /** Minimum log level for console output. */
     private String logLevel;
 
+    // -------------------------------------------------------------------------
+    // Update check
+    // -------------------------------------------------------------------------
+
+    /** Whether to poll versions.json on plugin enable to surface newer releases. */
+    private boolean updateCheckEnabled;
+
+    /** URL of the versions.json manifest; defaults to the PackMerger repo. */
+    private String updateCheckUrl;
+
     /**
      * Creates a new configuration manager bound to the given plugin instance.
      *
@@ -355,6 +365,11 @@ public class ConfigManager {
 
         // Logging
         logLevel = config.getString("log-level", "info");
+
+        // Update check
+        updateCheckEnabled = config.getBoolean("update-check.enabled", true);
+        updateCheckUrl = config.getString("update-check.url",
+                "https://raw.githubusercontent.com/PCX-Network/PackMerger/main/versions.json");
     }
 
     /**
@@ -545,6 +560,16 @@ public class ConfigManager {
 
     /** @return the configured minimum log level string */
     public String getLogLevel() { return logLevel; }
+
+    // -------------------------------------------------------------------------
+    // Getters — Update check
+    // -------------------------------------------------------------------------
+
+    /** @return {@code true} (default) if the plugin should poll for newer releases on enable */
+    public boolean isUpdateCheckEnabled() { return updateCheckEnabled; }
+
+    /** @return URL of the versions.json manifest to query */
+    public String getUpdateCheckUrl() { return updateCheckUrl; }
 
     // -------------------------------------------------------------------------
     // Inner types

@@ -69,9 +69,20 @@ public class PlayerJoinListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+
+        // Notify admins about available PackMerger updates. Runs before the
+        // distribution short-circuit so this fires even if pack distribution
+        // is disabled on the server.
+        if (plugin.getUpdateChecker() != null && player.hasPermission("packmerger.admin")) {
+            String msg = plugin.getUpdateChecker().updateMessageOrNull();
+            if (msg != null) {
+                player.sendMessage(net.kyori.adventure.text.Component.text(msg));
+            }
+        }
+
         if (!plugin.getConfigManager().isDistributionEnabled()) return;
 
-        Player player = event.getPlayer();
         int delay = plugin.getConfigManager().getJoinDelayTicks();
 
         // Schedule the pack send after the configured delay
