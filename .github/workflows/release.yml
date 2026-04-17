@@ -32,10 +32,31 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      # Pull the matching "## [X.Y.Z]" section out of CHANGELOG.md so the
+      # release body mirrors what we maintain in-repo, rather than relying on
+      # GitHub's auto-generated notes (which, on a direct-to-master workflow
+      # without PRs, produce nothing but a compare link).
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/        { exit }
+            found                    { print }
+          ' CHANGELOG.md > .release-notes.md
+          if [ ! -s .release-notes.md ]; then
+            echo "CHANGELOG.md has no section for version $VERSION" >&2
+            exit 1
+          fi
+          echo "" >> .release-notes.md
+          echo "---" >> .release-notes.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/...${GITHUB_REF_NAME}" >> .release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: PackMerger ${{ github.ref_name }}
           files: build/libs/PackMerger-${{ steps.version.outputs.version }}.jar
-          generate_release_notes: true
+          body_path: .release-notes.md
           make_latest: 'true'
