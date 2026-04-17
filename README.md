@@ -1,4 +1,18 @@
-# PackMerger
+<p align="center">
+  <img src="https://raw.githubusercontent.com/PCX-Network/Branding/main/PackMerger/branding/BANNER.png" alt="PackMerger">
+</p>
+
+<p align="center">
+  <strong>Merge, Host, and Distribute Multiple Resource Packs on Paper 1.21+</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml"><img src="https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml/badge.svg" alt="Release workflow"></a>
+  <img src="https://img.shields.io/badge/Paper-1.21%2B-blue" alt="Paper 1.21+">
+  <img src="https://img.shields.io/badge/Java-21%2B-orange" alt="Java 21+">
+  <a href="https://github.com/PCX-Network/PackMerger/releases/latest"><img src="https://img.shields.io/github/v/release/PCX-Network/PackMerger?color=green&label=latest&include_prereleases" alt="Latest release"></a>
+  <a href="https://github.com/PCX-Network/PackMerger"><img src="https://img.shields.io/github/stars/PCX-Network/PackMerger?style=flat&color=yellow" alt="Stars"></a>
+</p>
 
 A Paper plugin that merges multiple Minecraft resource packs into a single pack, uploads it to a configurable hosting provider, and automatically distributes it to players on join. Designed for servers and networks that need to combine packs from different sources into one seamless download.
 
