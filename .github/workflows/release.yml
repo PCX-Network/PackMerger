@@ -35,13 +35,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: PackMerger ${{ github.ref_name }} (test build)
+          name: PackMerger ${{ github.ref_name }}
           files: build/libs/PackMerger-${{ steps.version.outputs.version }}.jar
           generate_release_notes: true
-          prerelease: true
-          body: |
-            :warning: **Test build — not a stable release.**
-
-            This build is being shared with a specific user to validate a fix
-            (QualityArmory resource-pack merge compatibility). Please wait for a
-            later non-prerelease version before using in production.
+          make_latest: 'true'
