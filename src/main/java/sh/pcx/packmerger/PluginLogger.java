@@ -7,21 +7,31 @@ import org.bukkit.Bukkit;
 import java.util.logging.Level;
 
 /**
- * Console logging system with MiniMessage-colored category tags and configurable log levels.
+ * Console logging system with MiniMessage-colored category tags and
+ * configurable log levels.
  *
- * <p>All messages are sent to the console via {@link Bukkit#getConsoleSender()} for colored
- * output. Message content is appended as {@link Component#text(String)} (not parsed by
- * MiniMessage) to prevent tag injection from file paths or user input.</p>
+ * <p>
+ * All messages are sent to the console via {@link Bukkit#getConsoleSender()}
+ * for colored
+ * output. Message content is appended as {@link Component#text(String)} (not
+ * parsed by
+ * MiniMessage) to prevent tag injection from file paths or user input.
+ * </p>
  *
- * <p>Log levels control which messages are shown:</p>
+ * <p>
+ * Log levels control which messages are shown:
+ * </p>
  * <ul>
- *   <li>{@code DEBUG} — show everything (verbose)</li>
- *   <li>{@code INFO} — normal operation (default)</li>
- *   <li>{@code WARNING} — only warnings and errors</li>
- *   <li>{@code ERROR} — only errors</li>
+ * <li>{@code DEBUG} — show everything (verbose)</li>
+ * <li>{@code INFO} — normal operation (default)</li>
+ * <li>{@code WARNING} — only warnings and errors</li>
+ * <li>{@code ERROR} — only errors</li>
  * </ul>
  *
- * <p>Category methods ({@link #merge}, {@link #upload}) are cosmetic tags at INFO level.</p>
+ * <p>
+ * Category methods ({@link #merge}, {@link #upload}) are cosmetic tags at INFO
+ * level.
+ * </p>
  */
 public class PluginLogger {
 
@@ -30,7 +40,8 @@ public class PluginLogger {
         DEBUG, INFO, WARNING, ERROR;
 
         /**
-         * Parses a log level from a string, defaulting to {@link #INFO} if unrecognized.
+         * Parses a log level from a string, defaulting to {@link #INFO} if
+         * unrecognized.
          *
          * @param name the level name (case-insensitive)
          * @return the matching log level, or INFO if invalid
@@ -74,70 +85,82 @@ public class PluginLogger {
 
     private void log(String tag, String message) {
         Component component = MINI_MESSAGE.deserialize(
-                "<dark_gray>[PackMerger]</dark_gray> " + tag
-        ).append(Component.text(" " + message));
+                "<white>[PackMerger]</white> " + tag).append(Component.text(" " + message));
         Bukkit.getConsoleSender().sendMessage(component);
     }
 
     /** General operational messages. */
     public void info(String message) {
-        if (!isEnabled(LogLevel.INFO)) return;
+        if (!isEnabled(LogLevel.INFO))
+            return;
         log("<white>[INFO]</white>", message);
     }
 
     /** Merge operation messages. */
     public void merge(String message) {
-        if (!isEnabled(LogLevel.INFO)) return;
+        if (!isEnabled(LogLevel.INFO))
+            return;
         log("<aqua>[MERGE]</aqua>", message);
     }
 
     /** Upload and hosting messages. */
     public void upload(String message) {
-        if (!isEnabled(LogLevel.INFO)) return;
+        if (!isEnabled(LogLevel.INFO))
+            return;
         log("<green>[UPLOAD]</green>", message);
     }
 
-    /** Validation-pipeline messages (pack_format checks, orphan reports, rollback decisions). */
+    /**
+     * Validation-pipeline messages (pack_format checks, orphan reports, rollback
+     * decisions).
+     */
     public void validation(String message) {
-        if (!isEnabled(LogLevel.INFO)) return;
+        if (!isEnabled(LogLevel.INFO))
+            return;
         log("<light_purple>[VALIDATION]</light_purple>", message);
     }
 
     /** Remote pack fetch messages (HTTP downloads, cache hits, fetch failures). */
     public void remote(String message) {
-        if (!isEnabled(LogLevel.INFO)) return;
+        if (!isEnabled(LogLevel.INFO))
+            return;
         log("<blue>[REMOTE]</blue>", message);
     }
 
     /** Non-fatal issue warnings. */
     public void warning(String message) {
-        if (!isEnabled(LogLevel.WARNING)) return;
+        if (!isEnabled(LogLevel.WARNING))
+            return;
         log("<yellow>[WARNING]</yellow>", message);
     }
 
     /** Non-fatal issue warnings with a stack trace. */
     public void warning(String message, Throwable throwable) {
-        if (!isEnabled(LogLevel.WARNING)) return;
+        if (!isEnabled(LogLevel.WARNING))
+            return;
         log("<yellow>[WARNING]</yellow>", message);
         plugin.getLogger().log(Level.WARNING, "", throwable);
     }
 
     /** Failure messages. */
     public void error(String message) {
-        if (!isEnabled(LogLevel.ERROR)) return;
+        if (!isEnabled(LogLevel.ERROR))
+            return;
         log("<red>[ERROR]</red>", message);
     }
 
     /** Failure messages with a stack trace. */
     public void error(String message, Throwable throwable) {
-        if (!isEnabled(LogLevel.ERROR)) return;
+        if (!isEnabled(LogLevel.ERROR))
+            return;
         log("<red>[ERROR]</red>", message);
         plugin.getLogger().log(Level.SEVERE, "", throwable);
     }
 
     /** Verbose debug messages, disabled by default. */
     public void debug(String message) {
-        if (!isEnabled(LogLevel.DEBUG)) return;
+        if (!isEnabled(LogLevel.DEBUG))
+            return;
         log("<gray>[DEBUG]</gray>", message);
     }
 }
