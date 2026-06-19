@@ -23,7 +23,7 @@ jobs:
           java-version: 25
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # `build` runs the test suite before producing the shaded jar, so a
       # tagged release can't ship if tests are red.
