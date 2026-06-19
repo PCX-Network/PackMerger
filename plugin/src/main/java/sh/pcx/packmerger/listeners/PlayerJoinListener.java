@@ -80,6 +80,15 @@ public class PlayerJoinListener implements Listener {
             }
         }
 
+        // Advise admins about installed pack-generating plugins that aren't being
+        // merged (e.g. detected but disabled, or no generated pack found yet).
+        if (plugin.getPluginPackManager() != null && player.hasPermission("packmerger.admin")) {
+            String advisory = plugin.getPluginPackManager().getAdvisoryMessageOrNull();
+            if (advisory != null) {
+                player.sendMessage(net.kyori.adventure.text.Component.text(advisory));
+            }
+        }
+
         if (!plugin.getConfigManager().isDistributionEnabled()) return;
 
         long delay = plugin.getConfigManager().getJoinDelayTicks();

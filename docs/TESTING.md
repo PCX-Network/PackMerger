@@ -2,8 +2,8 @@
 
 ## Automated tests
 
-Unit tests live under `src/test/java` and run with `./gradlew test` (also run by
-`./gradlew build` and by CI on every push/PR — see `.github/workflows/ci.yml`).
+Unit tests live under `plugin/src/test/java` and run with `./gradlew test` (also run
+by `./gradlew build` and by CI on every push/PR — see `.github/workflows/ci.yml`).
 
 Current coverage is strong for the **pure-logic layer**: every merge strategy,
 the JSON merger, orphan detection, the pack-format registry, profile/S3 config

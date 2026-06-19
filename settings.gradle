@@ -1,1 +1,3 @@
 rootProject.name = 'PackMerger'
+
+include 'plugin'

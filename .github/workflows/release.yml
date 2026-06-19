@@ -59,6 +59,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: PackMerger ${{ github.ref_name }}
-          files: build/libs/PackMerger-${{ steps.version.outputs.version }}.jar
+          files: plugin/build/libs/PackMerger-${{ steps.version.outputs.version }}.jar
           body_path: .release-notes.md
           make_latest: 'true'

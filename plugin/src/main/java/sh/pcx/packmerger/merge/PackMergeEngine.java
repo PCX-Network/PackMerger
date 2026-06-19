@@ -342,18 +342,23 @@ public class PackMergeEngine {
 
         // Also enumerate remote-cache packs by alias (filename without .zip).
         // Admins reference these in priority: as just "<alias>".
-        File remoteCache = new File(packsFolder, ".remote-cache");
-        if (remoteCache.isDirectory()) {
-            File[] cached = remoteCache.listFiles();
-            if (cached != null) {
-                for (File f : cached) {
-                    String n = f.getName();
-                    if (!n.endsWith(".zip")) continue;
-                    packs.add(n.substring(0, n.length() - ".zip".length()));
-                }
-            }
-        }
+        addStagedAliases(new File(packsFolder, ".remote-cache"), packs);
+        // And plugin-sourced packs staged from other installed plugins
+        // (Oraxen, Nexo, ItemsAdder, …), referenced by their adapter alias.
+        addStagedAliases(new File(packsFolder, ".plugin-packs"), packs);
         return packs;
+    }
+
+    /** Adds every {@code <alias>.zip} in a staging dir to {@code packs} as "{@code <alias>}". */
+    private void addStagedAliases(File stageDir, List<String> packs) {
+        if (!stageDir.isDirectory()) return;
+        File[] cached = stageDir.listFiles();
+        if (cached == null) return;
+        for (File f : cached) {
+            String n = f.getName();
+            if (!n.endsWith(".zip")) continue;
+            packs.add(n.substring(0, n.length() - ".zip".length()));
+        }
     }
 
     /**
@@ -368,6 +373,8 @@ public class PackMergeEngine {
         if (direct.exists()) return direct;
         File remoteCached = new File(new File(packsFolder, ".remote-cache"), packName + ".zip");
         if (remoteCached.exists()) return remoteCached;
+        File pluginStaged = new File(new File(packsFolder, ".plugin-packs"), packName + ".zip");
+        if (pluginStaged.exists()) return pluginStaged;
         return direct;  // return the direct path so the "not found" warning still has a sensible message
     }
 
