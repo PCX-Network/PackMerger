@@ -4,10 +4,7 @@ plugins {
 }
 
 // group + version come from the root build.gradle.
-
-base {
-    archivesName = 'PackMerger-Velocity'
-}
+// The proxy jar takes the module name: packmerger-velocity-<version>.jar.
 
 java {
     toolchain {
@@ -23,7 +20,7 @@ repositories {
 dependencies {
     compileOnly libs.velocity.api
     annotationProcessor libs.velocity.api   // generates velocity-plugin.json from @Plugin
-    implementation project(':common')        // shaded into the proxy jar
+    implementation project(':packmerger-common')   // shaded into the proxy jar
 }
 
 tasks.named('shadowJar') {

@@ -4,12 +4,7 @@ plugins {
 }
 
 // group + version are set for all modules in the root build.gradle.
-
-// Keep the shipped jar named PackMerger-<version>.jar even though the module
-// is :plugin (the release workflow and docs reference that name).
-base {
-    archivesName = 'PackMerger'
-}
+// The shipped jar takes the module name: packmerger-plugin-<version>.jar.
 
 java {
     // Minecraft / Paper 26.1.2 requires Java 25.
@@ -36,10 +31,10 @@ dependencies {
 
     // Bedrock converter module — shaded into the plugin jar (pure Java + Gson,
     // which Paper provides at runtime).
-    implementation project(':bedrock')
+    implementation project(':packmerger-bedrock')
 
     // Shared backend<->proxy contract (PackInfo + plugin-message codec).
-    implementation project(':common')
+    implementation project(':packmerger-common')
 
     // Commons-compress stays shaded — small, zip-adjacent, loaded on the
     // critical path. Not worth the runtime-download indirection.

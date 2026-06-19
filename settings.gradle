@@ -1,6 +1,6 @@
 rootProject.name = 'PackMerger'
 
-include 'plugin'
-include 'bedrock'
-include 'common'
-include 'proxy-velocity'
+include 'packmerger-plugin'
+include 'packmerger-bedrock'
+include 'packmerger-common'
+include 'packmerger-velocity'

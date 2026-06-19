@@ -60,7 +60,7 @@ jobs:
         with:
           name: PackMerger ${{ github.ref_name }}
           files: |
-            plugin/build/libs/PackMerger-${{ steps.version.outputs.version }}.jar
-            proxy-velocity/build/libs/PackMerger-Velocity-${{ steps.version.outputs.version }}.jar
+            packmerger-plugin/build/libs/packmerger-plugin-${{ steps.version.outputs.version }}.jar
+            packmerger-velocity/build/libs/packmerger-velocity-${{ steps.version.outputs.version }}.jar
           body_path: .release-notes.md
           make_latest: 'true'

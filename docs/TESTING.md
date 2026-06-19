@@ -2,7 +2,8 @@
 
 ## Automated tests
 
-Unit tests live under `plugin/src/test/java` and run with `./gradlew test` (also run
+Unit tests live under each module's `src/test/java` (e.g. `packmerger-plugin/`,
+`packmerger-bedrock/`, `packmerger-common/`) and run with `./gradlew test` (also run
 by `./gradlew build` and by CI on every push/PR — see `.github/workflows/ci.yml`).
 
 Current coverage is strong for the **pure-logic layer**: every merge strategy,
@@ -70,7 +71,7 @@ end-to-end result can only be confirmed against a live Geyser server — do this
 relying on it:
 
 1. Install Geyser (+ Floodgate) and merge a pack containing CMD-based custom items.
-2. Confirm `output/bedrock/PackMerger-<server>.mcpack` and `…geyser.json` are written,
+2. Confirm `output/bedrock/packmerger-<server>.mcpack` and `…geyser.json` are written,
    and (with auto-deploy) copied into Geyser's `packs/` and `custom_mappings/`.
 3. Reload/restart Geyser, join with a **Bedrock** client, and verify the custom item
    icons render. Enable `bedrock.debug` to see which items/models were skipped
@@ -78,11 +79,11 @@ relying on it:
 
 ### Velocity proxy (network-wide distribution)
 
-The `:common` codec is unit-tested (`PackMessagingTest`); the end-to-end relay needs a
-real proxy + backend:
+The `:packmerger-common` codec is unit-tested (`PackMessagingTest`); the end-to-end
+relay needs a real proxy + backend:
 
-1. Build both jars (`./gradlew build`): `plugin/build/libs/PackMerger-<v>.jar` for each
-   backend, `proxy-velocity/build/libs/PackMerger-Velocity-<v>.jar` for the proxy.
+1. Build both jars (`./gradlew build`): `packmerger-plugin/build/libs/packmerger-plugin-<v>.jar`
+   for each backend, `packmerger-velocity/build/libs/packmerger-velocity-<v>.jar` for the proxy.
 2. Set `url=` in the proxy's `plugins/packmerger/config.properties`; join via the proxy
    and confirm the pack is offered.
 3. Set `distribution.proxy-notify: true` on a backend, trigger a merge with a player

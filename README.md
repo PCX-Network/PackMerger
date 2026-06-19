@@ -31,7 +31,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 - **Remote pack sources** — declare HTTPS URLs in config; PackMerger downloads and caches into `packs/.remote-cache/`, honors ETag / Last-Modified, supports bearer + basic auth with env-var substitution
 - **Multiple upload providers** — self-hosted HTTP, Polymath, or any S3-compatible object store (AWS S3 / Cloudflare R2 / Backblaze B2) with content-addressed keys, retention, and optional presigned URLs
 - **Bedrock / Geyser conversion** (opt-in, experimental) — converts the merged pack's custom item icons into a Bedrock pack + Geyser custom-item mappings so Bedrock players see the same custom items, with optional auto-deploy into Geyser's folders
-- **Network-wide distribution** (optional) — a companion Velocity proxy plugin (`PackMerger-Velocity`) offers the merged pack to players from the proxy; backends can push live URL/hash updates to it over a plugin channel
+- **Network-wide distribution** (optional) — a companion Velocity proxy plugin (`packmerger-velocity`) offers the merged pack to players from the proxy; backends can push live URL/hash updates to it over a plugin channel
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
@@ -52,7 +52,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 ## Installation
 
 1. Build the plugin (see [Building](#building)) or download the release jar
-2. Place `PackMerger-1.2.0.jar` into your server's `plugins/` folder
+2. Place `packmerger-plugin-1.2.0.jar` into your server's `plugins/` folder
 3. Start the server — the plugin generates `config.yml` and creates the `packs/`, `output/`, and `cache/` directories under `plugins/PackMerger/`
 4. Place your resource pack `.zip` files or unzipped pack folders into `plugins/PackMerger/packs/`
 5. Edit `plugins/PackMerger/config.yml` to configure priority order, upload provider, and distribution settings
@@ -67,7 +67,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 The shaded jar (with all dependencies bundled) is output to:
 
 ```
-plugin/build/libs/PackMerger-1.2.0.jar
+packmerger-plugin/build/libs/packmerger-plugin-1.2.0.jar
 ```
 
 Requires Java 25 to compile.
@@ -347,7 +347,7 @@ Geyser, and verify the result with a real Bedrock client.
 
 ### Network-Wide Distribution (Velocity)
 
-For proxy networks, install the companion **`PackMerger-Velocity`** plugin on the
+For proxy networks, install the companion **`packmerger-velocity`** plugin on the
 proxy. It offers the merged pack to every player as they join the proxy, so you
 don't rely on each backend sending its own. It reuses whatever hosting your
 backends already use — it only needs the pack URL.
@@ -359,8 +359,8 @@ PackMerger instances: after each upload the backend relays the new URL + SHA-1 t
 the proxy over the `packmerger:pack` plugin channel (via a connected player), and
 the proxy offers the updated pack to subsequent joins.
 
-> Both jars are published with each release: `PackMerger-<version>.jar` (backend)
-> and `PackMerger-Velocity-<version>.jar` (proxy).
+> Both jars are published with each release: `packmerger-plugin-<version>.jar` (backend)
+> and `packmerger-velocity-<version>.jar` (proxy).
 
 ### Plugin API (experimental)
 

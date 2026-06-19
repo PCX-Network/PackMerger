@@ -474,7 +474,7 @@ distribution:
 
   # Push the merged pack's URL + SHA-1 to a Velocity/Bungee proxy so the pack is
   # offered network-wide from the proxy (instead of each backend sending its own).
-  # Requires the PackMerger proxy plugin (PackMerger-Velocity) installed on the
+  # Requires the PackMerger proxy plugin (packmerger-velocity) installed on the
   # proxy. The proxy can also be given the URL directly in its own config.
   # Off by default.
   proxy-notify: false

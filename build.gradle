@@ -1,8 +1,10 @@
 // Root aggregator for the PackMerger monorepo.
 //
 // Modules:
-//   :plugin          — the Paper plugin (the shipped jar)
-// Added in later phases: :common, :bedrock, :proxy-velocity, :proxy-bungee.
+//   :packmerger-plugin    — the Paper plugin (shipped jar)
+//   :packmerger-velocity  — the Velocity proxy plugin (shipped jar)
+//   :packmerger-bedrock   — Java→Bedrock converter (library, shaded into the plugin)
+//   :packmerger-common    — shared backend↔proxy contract (library, shaded)
 //
 // Dependency versions live in the shared catalog at gradle/libs.versions.toml,
 // which is available to every module.
