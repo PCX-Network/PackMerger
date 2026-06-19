@@ -257,23 +257,19 @@ public class PackValidator {
         String mode = plugin.getConfigManager().getPackFormatCheckMode();
         if (mode == null || mode.equalsIgnoreCase("off")) return 0;
 
-        JsonElement formatEl = packBlock.get("pack_format");
-        if (formatEl == null || !formatEl.isJsonPrimitive() || !formatEl.getAsJsonPrimitive().isNumber()) {
-            return 0;
-        }
-        int packFormat = formatEl.getAsInt();
-
-        int[] supportedFormats = extractSupportedFormats(packBlock.get("supported_formats"));
+        FormatDecl decl = resolveFormatDeclaration(packBlock);
+        if (decl == null) return 0;  // no recognizable format info — can't check
 
         String mcVersion = getMinecraftVersion();
-        PackFormatRegistry.Drift drift = PackFormatRegistry.classify(packFormat, supportedFormats, mcVersion);
+        PackFormatRegistry.Drift drift =
+                PackFormatRegistry.classify(decl.declaredFormat(), decl.supportedFormats(), mcVersion);
 
         if (drift == PackFormatRegistry.Drift.MATCH || drift == PackFormatRegistry.Drift.UNKNOWN) {
             return 0;
         }
 
         int expected = PackFormatRegistry.forMinecraftVersion(mcVersion);
-        String base = "pack_format " + packFormat + " in pack.mcmeta doesn't match server "
+        String base = "pack format " + decl.declaredFormat() + " in pack.mcmeta doesn't match server "
                 + mcVersion + " (expected " + expected + ")";
 
         if (mode.equalsIgnoreCase("error") || drift == PackFormatRegistry.Drift.MAJOR) {
@@ -312,6 +308,48 @@ public class PackValidator {
             JsonObject obj = el.getAsJsonObject();
             if (obj.has("min_inclusive") && obj.has("max_inclusive")) {
                 return new int[] { obj.get("min_inclusive").getAsInt(), obj.get("max_inclusive").getAsInt() };
+            }
+        }
+        return null;
+    }
+
+    /** A pack's declared format and supported {@code [min, max]} range. */
+    record FormatDecl(int declaredFormat, int[] supportedFormats) {}
+
+    /**
+     * Resolves the pack's declared format + supported range, honoring both schemas:
+     * the legacy {@code pack_format} / {@code supported_formats}, and the 1.21.9+
+     * (26.1) {@code min_format} / {@code max_format} fields that replaced it. The
+     * new fields are treated as the supported range, with {@code max_format} as the
+     * "declared" format for the drift message. Returns {@code null} when the pack
+     * declares no recognizable format info.
+     */
+    static FormatDecl resolveFormatDeclaration(JsonObject packBlock) {
+        if (packBlock == null) return null;
+        Integer min = readFormatInt(packBlock.get("min_format"));
+        Integer max = readFormatInt(packBlock.get("max_format"));
+        if (min != null || max != null) {
+            int lo = min != null ? min : max;
+            int hi = max != null ? max : min;
+            return new FormatDecl(hi, new int[] { lo, hi });
+        }
+        Integer legacy = readFormatInt(packBlock.get("pack_format"));
+        if (legacy == null) return null;
+        return new FormatDecl(legacy, extractSupportedFormats(packBlock.get("supported_formats")));
+    }
+
+    /**
+     * Reads a pack-format value that may be a plain integer or, since 1.21.9, a
+     * {@code [major, minor]} array (the major component is used). Returns
+     * {@code null} for absent or malformed values.
+     */
+    static Integer readFormatInt(JsonElement el) {
+        if (el == null || el.isJsonNull()) return null;
+        if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) return el.getAsInt();
+        if (el.isJsonArray()) {
+            JsonArray arr = el.getAsJsonArray();
+            if (arr.size() >= 1 && arr.get(0).isJsonPrimitive() && arr.get(0).getAsJsonPrimitive().isNumber()) {
+                return arr.get(0).getAsInt();
             }
         }
         return null;
