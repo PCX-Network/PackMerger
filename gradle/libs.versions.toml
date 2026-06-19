@@ -12,7 +12,7 @@ commons-compress = "1.28.0"
 minio = "8.6.0"
 gson = "2.14.0"
 # JUnit 6.x is a major bump; kept on 5.x here, Dependabot proposes 6.x under CI.
-junit = "5.14.4"
+junit = "6.1.0"
 velocity = "3.4.0"
 shadow = "9.4.2"
 
