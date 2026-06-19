@@ -56,7 +56,7 @@ jobs:
           echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/...${GITHUB_REF_NAME}" >> .release-notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: PackMerger ${{ github.ref_name }}
           files: |
