@@ -149,6 +149,11 @@ public class PackMergerBootstrap implements PackMergerApi {
         // Initialize components in dependency order
         mergeEngine = new PackMergeEngine(this);
         validator = new PackValidator(this);
+        // Surface pack-format registry coverage vs. the running server so an
+        // operator can spot when the server is newer than the registry knows
+        // (which silently disables the pack_format drift check).
+        logger.debug(sh.pcx.packmerger.merge.PackFormatRegistry.describe()
+                + "; server reports Minecraft " + Bukkit.getMinecraftVersion());
         cacheManager = new PlayerCacheManager(this);
         cacheManager.load();
         distributor = new PackDistributor(this);

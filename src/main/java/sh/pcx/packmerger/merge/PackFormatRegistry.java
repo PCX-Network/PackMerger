@@ -32,6 +32,18 @@ public final class PackFormatRegistry {
 
     /** Registry table, newest first so prefix matching picks the most specific entry. */
     private static final List<Entry> TABLE = List.of(
+            // 2026+ year-based scheme: <year>.<drop>[.<patch>]. Mojang switched
+            // from 1.21.x to this after 1.21.11.
+            new Entry("26.2",    88),
+            new Entry("26.1",    84),
+            // Tail of the 1.21 line. Pack format gained minor versions in 1.21.9
+            // (69.0); we track the integer major, which is what pack.mcmeta
+            // declares and what the drift check compares.
+            new Entry("1.21.11", 75),
+            new Entry("1.21.10", 69),
+            new Entry("1.21.9",  69),
+            new Entry("1.21.8",  64),
+            new Entry("1.21.7",  64),
             new Entry("1.21.6", 63),
             new Entry("1.21.5", 55),
             new Entry("1.21.4", 46),

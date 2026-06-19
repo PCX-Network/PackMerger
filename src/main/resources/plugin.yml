@@ -1,7 +1,7 @@
 name: PackMerger
 version: '${version}'
 main: sh.pcx.packmerger.loader.PackMergerLoader
-api-version: '1.21'
+api-version: '26.1'
 folia-supported: true
 author: PCX Network
 description: Merges multiple resource packs and hosts them externally

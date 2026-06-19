@@ -127,7 +127,7 @@ public class PolymathUploadProvider implements UploadProvider {
         }
 
         if (statusCode < 200 || statusCode >= 300) {
-            throw new RuntimeException("Polymath upload failed with HTTP " + statusCode + ": " + body);
+            throw new RuntimeException("Polymath upload failed with HTTP " + statusCode + ": " + summarize(body));
         }
 
         // Parse the download URL from the JSON response.
@@ -135,7 +135,7 @@ public class PolymathUploadProvider implements UploadProvider {
         // to avoid adding a JSON dependency.
         String downloadUrl = extractUrlFromJson(body);
         if (downloadUrl == null || downloadUrl.isEmpty()) {
-            throw new RuntimeException("Polymath server returned an unexpected response (no URL found): " + body);
+            throw new RuntimeException("Polymath server returned an unexpected response (no URL found): " + summarize(body));
         }
 
         // If the URL is a relative path, prepend the server URL
@@ -226,6 +226,25 @@ public class PolymathUploadProvider implements UploadProvider {
      * @param json the JSON response body from the Polymath server
      * @return the extracted URL, or {@code null} if no URL field was found
      */
+    /** Max characters of an upstream response body to surface in an error message. */
+    private static final int MAX_BODY_SNIPPET = 500;
+
+    /**
+     * Trims an upstream response body so a misbehaving (or hostile) Polymath
+     * server can't dump an arbitrarily large or sensitive payload into the
+     * server console via a propagated exception message. Newlines are collapsed
+     * to keep the message on a single log line.
+     *
+     * @param body the raw response body (may be {@code null})
+     * @return a single-line, length-bounded snippet safe to log
+     */
+    private String summarize(String body) {
+        if (body == null || body.isEmpty()) return "<empty response>";
+        String oneLine = body.replaceAll("\\s+", " ").trim();
+        if (oneLine.length() <= MAX_BODY_SNIPPET) return oneLine;
+        return oneLine.substring(0, MAX_BODY_SNIPPET) + "… (" + oneLine.length() + " chars total)";
+    }
+
     private String extractUrlFromJson(String json) {
         // Try common field names that Polymath might use for the download URL
         String[] fieldNames = {"url", "download", "pack"};

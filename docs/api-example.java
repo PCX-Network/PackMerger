@@ -7,7 +7,7 @@
 // You'll need PackMerger on your compile classpath. If you're using Gradle:
 //
 //   dependencies {
-//       compileOnly 'com.github.PCX-Network:PackMerger:1.1.0'   // via JitPack, or a local jar
+//       compileOnly 'com.github.PCX-Network:PackMerger:1.2.0'   // via JitPack, or a local jar
 //   }
 
 package com.example.myplugin;

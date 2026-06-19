@@ -30,6 +30,13 @@ public class ConfigManager {
     /** Reference to the owning plugin instance, used to access Bukkit config API. */
     private final PackMergerBootstrap plugin;
 
+    /**
+     * Current config schema version. Bump this whenever new keys are introduced
+     * so {@link #load()} can surface a one-line notice on older configs (we never
+     * rewrite the file, since it carries operator comments).
+     */
+    private static final int CURRENT_CONFIG_VERSION = 1;
+
     // -------------------------------------------------------------------------
     // General
     // -------------------------------------------------------------------------
@@ -219,6 +226,17 @@ public class ConfigManager {
         plugin.saveDefaultConfig();
         plugin.reloadConfig();
         FileConfiguration config = plugin.getConfig();
+
+        // Surface configs written for an older plugin version. Missing keys
+        // silently fall back to defaults below; this makes that explicit instead
+        // of invisible. (configs predating this field read as version 0.)
+        int configVersion = config.getInt("config-version", 0);
+        if (configVersion < CURRENT_CONFIG_VERSION) {
+            plugin.getLogger().log(Level.INFO,
+                    "config.yml reports version " + configVersion + " (current is " + CURRENT_CONFIG_VERSION
+                            + "); any newly added keys are using their defaults. Review the latest "
+                            + "config.yml from the releases page to pick up new options.");
+        }
 
         // Server name — auto-detect from server.properties if not explicitly set
         serverName = config.getString("server-name", "");

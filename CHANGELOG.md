@@ -4,6 +4,52 @@ All notable changes to PackMerger are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-06-18
+
+Platform-update release: brings PackMerger onto the 2026 Minecraft/Paper line and
+closes the biggest tooling gaps.
+
+### Changed
+
+- **Built against Paper 26.1.2 (Minecraft's new year-based versioning) on Java 25.**
+  Mojang switched from the `1.21.x` scheme to `<year>.<drop>.<patch>` after 1.21.11;
+  the build now targets `io.papermc.paper:paper-api:26.1.2.build.+`, the Gradle
+  toolchain is Java 25, and `plugin.yml` `api-version` is `26.1`.
+- **Pack-format registry brought current.** Added the late 1.21 line (1.21.7–1.21.8
+  → 64, 1.21.9–1.21.10 → 69, 1.21.11 → 75) and the new 26.x scheme (26.1–26.1.2 →
+  84, 26.2 → 88). The registry had stopped at 1.21.6, so the `pack_format` drift
+  check was silently returning `UNKNOWN` (a no-op) on every server newer than that.
+  Startup now logs the registry coverage vs. the running server version at debug.
+
+### Added
+
+- **CI workflow** (`.github/workflows/ci.yml`) running `./gradlew build` (full test
+  suite + shaded jar) on every push and PR. Until now nothing ran the tests in CI.
+- **Dependabot** (`.github/dependabot.yml`) for the Gradle and GitHub-Actions
+  ecosystems. This is what proposes the deferred major bumps (MinIO 9.x, JUnit 6.x)
+  as separate, CI-gated PRs.
+- **Gradle version catalog** (`gradle/libs.versions.toml`) as the single source of
+  dependency versions; de-duplicates the MinIO coordinate that was declared twice.
+- **`docs/TESTING.md`** documenting the per-release Paper + Folia smoke test and the
+  integration-test roadmap for the (currently Bukkit-coupled) I/O layer.
+- **`config-version` field** in `config.yml`. PackMerger logs a one-line notice when
+  a config predates the current schema, so silently-defaulted new keys are visible.
+
+### Build / dependencies
+
+- Gradle wrapper `8.12` → `9.5.1` (required for Java 25); pinned with a checksum.
+- Shadow plugin `8.3.6` → `9.4.2` (required for Gradle 9).
+- gson `2.11.0` → `2.14.0`, commons-compress `1.27.1` → `1.28.0`,
+  minio `8.5.10` → `8.6.0`, JUnit `5.11.3` → `5.14.4`. (MinIO 9.x and JUnit 6.x are
+  majors left to Dependabot so they land under CI verification.)
+- The release workflow now runs `./gradlew build` (tests gate the release) on Java 25.
+
+### Fixed
+
+- `PolymathUploadProvider` no longer echoes an unbounded upstream response body into
+  the console on a failed upload; error messages are collapsed to a single,
+  length-capped snippet.
+
 ## [1.1.0] — 2026-04-16
 
 Operator-experience release. Correctness of the merge engine is settled from

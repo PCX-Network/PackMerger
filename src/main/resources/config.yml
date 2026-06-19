@@ -7,6 +7,12 @@
 # After making changes, run /packmerger reload to apply them.
 # =============================================================================
 
+# Config schema version. Do not edit by hand. PackMerger logs a notice on
+# startup if this is older than the plugin expects, so you know to review the
+# latest config.yml for newly added options. Missing keys always fall back to
+# safe defaults, so upgrades never break — this is purely informational.
+config-version: 1
+
 # =============================================================================
 # Server Identity
 # =============================================================================

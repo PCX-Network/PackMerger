@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <strong>Merge, Host, and Distribute Multiple Resource Packs on Paper 1.21+</strong>
+  <strong>Merge, Host, and Distribute Multiple Resource Packs on Paper 26.1+</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml"><img src="https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml/badge.svg" alt="Release workflow"></a>
-  <img src="https://img.shields.io/badge/Paper-1.21%2B-blue" alt="Paper 1.21+">
-  <img src="https://img.shields.io/badge/Java-21%2B-orange" alt="Java 21+">
+  <img src="https://img.shields.io/badge/Paper-26.1%2B-blue" alt="Paper 26.1+">
+  <img src="https://img.shields.io/badge/Java-25%2B-orange" alt="Java 25+">
   <a href="https://github.com/PCX-Network/PackMerger/releases/latest"><img src="https://img.shields.io/github/v/release/PCX-Network/PackMerger?color=green&label=latest&include_prereleases" alt="Latest release"></a>
   <a href="https://github.com/PCX-Network/PackMerger"><img src="https://img.shields.io/github/stars/PCX-Network/PackMerger?style=flat&color=yellow" alt="Stars"></a>
 </p>
@@ -42,14 +42,14 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 
 ## Requirements
 
-- **Paper 1.21+** (built against Paper API 1.21.4) or **Folia** 1.21+
-- **Java 21** or newer
+- **Paper 26.1+** (built against Paper API 26.1.2) or **Folia** 26.1+
+- **Java 25** or newer
 - `folia-supported: true` in plugin.yml — every scheduler call routes through Paper/Folia's region-aware APIs so the plugin runs without `UnsupportedOperationException`s on Folia
 
 ## Installation
 
 1. Build the plugin (see [Building](#building)) or download the release jar
-2. Place `PackMerger-1.1.0.jar` into your server's `plugins/` folder
+2. Place `PackMerger-1.2.0.jar` into your server's `plugins/` folder
 3. Start the server — the plugin generates `config.yml` and creates the `packs/`, `output/`, and `cache/` directories under `plugins/PackMerger/`
 4. Place your resource pack `.zip` files or unzipped pack folders into `plugins/PackMerger/packs/`
 5. Edit `plugins/PackMerger/config.yml` to configure priority order, upload provider, and distribution settings
@@ -64,10 +64,10 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 The shaded jar (with all dependencies bundled) is output to:
 
 ```
-build/libs/PackMerger-1.1.0.jar
+build/libs/PackMerger-1.2.0.jar
 ```
 
-Requires Java 21 to compile.
+Requires Java 25 to compile.
 
 ## Configuration
 

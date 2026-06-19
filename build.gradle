@@ -1,17 +1,16 @@
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '8.3.6'
+    alias(libs.plugins.shadow)
 }
 
 group = 'sh.pcx'
-version = '1.1.0'
+version = '1.2.0'
 
 java {
+    // Minecraft / Paper 26.1.2 requires Java 25.
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
@@ -28,23 +27,24 @@ configurations {
 }
 
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+    compileOnly libs.paper.api
 
     // Commons-compress stays shaded — small, zip-adjacent, loaded on the
     // critical path. Not worth the runtime-download indirection.
-    implementation 'org.apache.commons:commons-compress:1.27.1'
+    implementation libs.commons.compress
 
     // MinIO (S3 upload provider). compileOnly for compilation; runtimeDownload
     // for the loader to pull at startup. Transitive closure is resolved from
     // the runtimeDownload configuration and shipped in RuntimeDependencies.java.
-    compileOnly 'io.minio:minio:8.5.10'
-    runtimeDownload 'io.minio:minio:8.5.10'
+    // Single catalog coordinate keeps the two declarations in lockstep.
+    compileOnly libs.minio
+    runtimeDownload libs.minio
 
     // Gson ships with paper-api at runtime; the test classpath needs it explicitly.
-    testImplementation 'com.google.code.gson:gson:2.11.0'
-    testImplementation platform('org.junit:junit-bom:5.11.3')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation libs.gson
+    testImplementation platform(libs.junit.bom)
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
 }
 
 // Generates RuntimeDependencies.java into build/generated/ from the
@@ -109,9 +109,12 @@ tasks.named('build') {
     dependsOn tasks.named('shadowJar')
 }
 
+// Capture at configuration time so the token-expansion closure doesn't touch
+// Task.project at execution time (deprecated; breaks the configuration cache).
+def pluginVersion = version
 tasks.named('processResources') {
     filesMatching('plugin.yml') {
-        expand version: project.version
+        expand version: pluginVersion
     }
 }
 

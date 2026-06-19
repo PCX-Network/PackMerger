@@ -19,6 +19,34 @@ class PackFormatRegistryTest {
         // 1.21.4 must match its specific entry (46), not 1.21's (34).
         assertEquals(46, PackFormatRegistry.forMinecraftVersion("1.21.4"));
         assertEquals(42, PackFormatRegistry.forMinecraftVersion("1.21.2"));
+        // 1.21.11 must match its own entry (75), not 1.21.1's (34) — both are
+        // prefixes of "1.21.11", so newest-first ordering is what saves us.
+        assertEquals(75, PackFormatRegistry.forMinecraftVersion("1.21.11"));
+        assertEquals(69, PackFormatRegistry.forMinecraftVersion("1.21.10"));
+    }
+
+    @Test
+    void forMinecraftVersion_lateOneTwentyOneLine() {
+        assertEquals(64, PackFormatRegistry.forMinecraftVersion("1.21.7"));
+        assertEquals(64, PackFormatRegistry.forMinecraftVersion("1.21.8"));
+        assertEquals(69, PackFormatRegistry.forMinecraftVersion("1.21.9"));
+        assertEquals(75, PackFormatRegistry.forMinecraftVersion("1.21.11"));
+    }
+
+    @Test
+    void forMinecraftVersion_yearBasedScheme() {
+        // The 2026 switch from 1.21.x to <year>.<drop> must resolve, otherwise
+        // the pack-format guardrail silently no-ops on every modern server.
+        assertEquals(84, PackFormatRegistry.forMinecraftVersion("26.1"));
+        assertEquals(84, PackFormatRegistry.forMinecraftVersion("26.1.2"));
+        assertEquals(88, PackFormatRegistry.forMinecraftVersion("26.2"));
+    }
+
+    @Test
+    void classify_yearBasedScheme_notUnknown() {
+        // A matching pack on a 26.1.2 server must classify as MATCH, not UNKNOWN.
+        assertEquals(PackFormatRegistry.Drift.MATCH,
+                PackFormatRegistry.classify(84, null, "26.1.2"));
     }
 
     @Test
