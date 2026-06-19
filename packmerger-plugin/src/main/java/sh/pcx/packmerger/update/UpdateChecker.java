@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>The manifest format is intentionally minimal:</p>
  * <pre>
  * {
- *   "latest": "1.1.0",
- *   "latest_url": "https://github.com/PCX-Network/PackMerger/releases/tag/v1.1.0",
- *   "latest_notes": "Operator-experience release — inspect, rollback, remote packs, S3"
+ *   "latest": "1.2.0",
+ *   "latest_url": "https://www.spigotmc.org/resources/packmerger.132700/updates",
+ *   "latest_notes": "Auto plugin-pack discovery, Bedrock/Geyser, Velocity proxy, Paper 26.1.2"
  * }
  * </pre>
  *
@@ -33,9 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class UpdateChecker {
 
-    /** Default manifest location in the PackMerger repo's main branch. */
+    /** Default manifest location in the PackMerger repo's default branch. */
     public static final String DEFAULT_URL =
-            "https://raw.githubusercontent.com/PCX-Network/PackMerger/main/versions.json";
+            "https://raw.githubusercontent.com/PCX-Network/PackMerger/master/versions.json";
 
     private final PackMergerBootstrap plugin;
     private final PluginLogger logger;
