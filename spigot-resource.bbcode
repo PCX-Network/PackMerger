@@ -1,11 +1,11 @@
 [CENTER]
 [IMG]https://raw.githubusercontent.com/PCX-Network/Branding/main/PackMerger/branding/BANNER.png[/IMG]
 
-[SIZE=5]Merge, Host, and Distribute Multiple Resource Packs on Paper 1.21+[/SIZE]
+[SIZE=5]Merge, Host, and Distribute Multiple Resource Packs on Paper 26.1+[/SIZE]
 
 [URL='https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml'][IMG]https://github.com/PCX-Network/PackMerger/actions/workflows/release.yml/badge.svg[/IMG][/URL]
 
-[IMG]https://img.shields.io/badge/Paper-1.21%2B-blue[/IMG] [IMG]https://img.shields.io/badge/Java-21%2B-orange[/IMG] [URL='https://github.com/PCX-Network/PackMerger/releases/latest'][IMG]https://img.shields.io/github/v/release/PCX-Network/PackMerger?color=green&label=latest&include_prereleases[/IMG][/URL] [URL='https://github.com/PCX-Network/PackMerger'][IMG]https://img.shields.io/github/stars/PCX-Network/PackMerger?style=flat&color=yellow[/IMG][/URL]
+[IMG]https://img.shields.io/badge/Paper-26.1%2B-blue[/IMG] [IMG]https://img.shields.io/badge/Java-25%2B-orange[/IMG] [URL='https://github.com/PCX-Network/PackMerger/releases/latest'][IMG]https://img.shields.io/github/v/release/PCX-Network/PackMerger?color=green&label=latest&include_prereleases[/IMG][/URL] [URL='https://github.com/PCX-Network/PackMerger'][IMG]https://img.shields.io/github/stars/PCX-Network/PackMerger?style=flat&color=yellow[/IMG][/URL]
 [/CENTER]
 
 [CENTER][SIZE=5][COLOR=#ED3A3D][B]━━━━━━━━━━ Downloads ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
@@ -23,64 +23,34 @@ Instead of forcing players to manually install or merge packs, drop your packs i
 
 [CENTER][SIZE=5][COLOR=#ED3A3D][B]━━━━━━━━━━ Features ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
 
-[B][SIZE=4]Core Features[/SIZE][/B]
 [LIST]
-[*][B]Priority-Based Merging[/B] - Control which pack's files win on conflict via a simple ordered list
-[*][B]Format-Aware JSON Merging[/B] - Dedicated strategies for each Minecraft JSON format so nothing is silently lost
-[*][B]Built-In HTTP Host[/B] - Self-host the merged pack without third-party services
-[*][B]Polymath Support[/B] - Upload to a self-hosted Polymath instance if you already run one
-[*][B]Auto-Distribution on Join[/B] - Pack is sent to players automatically when they connect
-[*][B]Player Cache Tracking[/B] - Skips re-sending the pack if the player's SHA-1 already matches
-[*][B]Per-Server Composition[/B] - Multi-server networks can include/exclude packs per backend
-[*][B]Hot Reload[/B] - Watches the packs folder and auto-merges on changes with configurable debounce
-[*][B]Pack Validation[/B] - Checks pack.mcmeta structure, JSON syntax, and missing texture/model references after every merge
-[*][B]Custom Overrides[/B] - Drop a [FONT=Courier New]pack.mcmeta[/FONT] or [FONT=Courier New]pack.png[/FONT] into the packs folder to override the merged metadata/icon
-[*][B]Brigadier Commands[/B] - Full tab completion via Paper's modern command API
-[*][B]Configurable Messages[/B] - All player-facing text is externalized in [FONT=Courier New]messages_en.yml[/FONT]
-[*][B]Colored Console Logging[/B] - Readable category tags with configurable log levels
-[/LIST]
-
-[B][SIZE=4]v1.1.0 Features[/SIZE][/B]
-[LIST]
-[*][B]Merge Provenance + /pm inspect[/B] - For every output file PackMerger now records which pack won and every contributor. Surface via [FONT=Courier New]/pm inspect[/FONT] (summary, per-pack, collisions, exportable report) and the plugin API. Turns "why is this texture missing?" into a one-command answer.
-[*][B]Validation Rollback[/B] - If a new merge produces validation errors, PackMerger keeps the previous merged pack live for players and fires [FONT=Courier New]PackValidationFailedEvent[/FONT] instead of shipping broken output. Configurable via [FONT=Courier New]validation.rollback-on-errors[/FONT].
-[*][B]pack_format Guardrail[/B] - Warns (or errors, your choice) when the merged pack's [FONT=Courier New]pack_format[/FONT] doesn't match the running server's Minecraft version. Honors [FONT=Courier New]supported_formats[/FONT] ranges.
-[*][B]Orphan Asset Detection[/B] - Finds unreferenced textures and sounds in the merged output so you can trim bloated packs. Top-N-by-size listed in validation; full list via [FONT=Courier New]/pm inspect export[/FONT].
-[*][B]In-game Priority Reordering[/B] - [FONT=Courier New]/pm priority up|down|top|bottom|set <pack>[/FONT] edits config.yml and re-merges live — no more YAML + reload dance.
-[*][B]Profiles / Presets[/B] - Flip whole pack compositions atomically via [FONT=Courier New]/pm profile switch <name>[/FONT] for seasonal events or A/B tests. Backwards-compatible with pre-1.1.0 configs.
-[*][B]Remote Pack Sources[/B] - Declare pack URLs in config and PackMerger downloads + caches them with ETag / Last-Modified. Supports bearer + basic auth with [FONT=Courier New]${ENV_VAR}[/FONT] substitution so secrets stay out of config.yml. New [FONT=Courier New]/pm fetch[/FONT] command.
-[*][B]S3 / R2 / Backblaze Upload[/B] - New [FONT=Courier New]provider: "s3"[/FONT] option uploads to any S3-compatible store: AWS S3, Cloudflare R2, Backblaze B2. Content-addressed keys + retention policy, or stable keys; public-read or presigned (private) ACLs.
-[*][B]Plugin API + Bukkit Events[/B] - [FONT=Courier New]PackMergedEvent[/FONT], [FONT=Courier New]PackUploadedEvent[/FONT], [FONT=Courier New]PackValidationFailedEvent[/FONT], etc. Other plugins can react without log-scraping. [FONT=Courier New]@Experimental[/FONT] in 1.1.0 — stable in 1.2.
-[/LIST]
-
-[B][SIZE=4]v1.0.5 Features[/SIZE][/B]
-[LIST]
-[*][B]Language File Merging[/B] - [FONT=Courier New]assets/<ns>/lang/*.json[/FONT] translation files now key-union instead of last-write-wins, so stacking multiple plugins that localize messages into the same [FONT=Courier New]en_us.json[/FONT] no longer silently drops one side's translations
-[*][B]pack.mcmeta filter.block Preservation[/B] - [FONT=Courier New]filter.block[][/FONT] entries (used to hide specific vanilla assets) are now concatenated and deduped by [FONT=Courier New]namespace|path[/FONT] across packs, mirroring the 1.0.4 [FONT=Courier New]overlays.entries[/FONT] fix
-[*][B]CustomModelData Collision Warnings[/B] - When two packs claim the same [FONT=Courier New]custom_model_data[/FONT] predicate on an item model, a warning is now logged at merge time with the file path and offending predicate — no more silent "my knife turned into a pistol" bug reports
-[/LIST]
-
-[B][SIZE=4]v1.0.4 Features[/SIZE][/B]
-[LIST]
-[*][B]pack.mcmeta Overlays Preservation[/B] - [FONT=Courier New]overlays.entries[][/FONT] declarations (used by QualityArmory and other packs for version-specific asset directories) are now concat-deduped by [FONT=Courier New]directory[/FONT] instead of being dropped when a higher-priority pack's [FONT=Courier New]pack.mcmeta[/FONT] wins
-[/LIST]
-
-[B][SIZE=4]v1.0.3 Features[/SIZE][/B]
-[LIST]
-[*][B]Path-Specific Merge Strategies[/B] - The JSON merger is now split into dedicated strategies per Minecraft format
-[*][B]QualityArmory Compatibility[/B] - Item-model [FONT=Courier New]overrides[/FONT] arrays from multiple packs now concat-dedup by predicate instead of being replaced, so CustomModelData entries survive
-[*][B]1.21.4 Item Definitions[/B] - [FONT=Courier New]assets/<ns>/items/[/FONT] files are now recognised and deep-merged
-[*][B]1.21.2+ Equipment Models[/B] - [FONT=Courier New]assets/<ns>/equipment/[/FONT] files are now recognised and merged per slot
-[*][B]1.19.3+ Texture Atlases[/B] - [FONT=Courier New]assets/<ns>/atlases/[/FONT] sources are concatenated instead of replaced
-[*][B]Font Providers[/B] - [FONT=Courier New]assets/<ns>/font/*.json[/FONT] providers arrays now concat so custom chat-icon packs compose cleanly
-[*][B]Comprehensive Test Suite[/B] - Unit tests covering every merge strategy, including regression tests for the QualityArmory, overlay, filter, and CMD-collision scenarios
+[*][B]Automatic Plugin-Pack Discovery[/B] - Detects packs generated by other installed plugins (Oraxen, Nexo, ItemsAdder, ModelEngine, EliteMobs, FreeMinecraftModels) and pulls each into the merge automatically — no manual exporting or copying. Unlike file-overwrite mergers, these are [B]deep-merged[/B] through the format-aware strategies, so overlapping item models and arrays combine instead of clobbering each other.
+[*][B]Priority-Based Merging[/B] - Control which pack's files win on conflict via a simple ordered list.
+[*][B]Format-Aware Deep JSON Merging[/B] - Dedicated strategies per Minecraft format (models, blockstates, items, equipment, atlases, font, sounds, language, [FONT=Courier New]pack.mcmeta[/FONT]) so nothing is silently lost: [FONT=Courier New]overrides[/FONT]/[FONT=Courier New]sources[/FONT]/[FONT=Courier New]providers[/FONT]/[FONT=Courier New]overlays.entries[/FONT]/[FONT=Courier New]filter.block[/FONT] arrays concat-dedup by identity, [FONT=Courier New]lang[/FONT] files key-union, and same-predicate [FONT=Courier New]custom_model_data[/FONT] collisions are flagged at merge time (no more "my knife turned into a pistol").
+[*][B]Merge Provenance + /pm inspect[/B] - For every output file, records which pack won and every contributor. Surface via [FONT=Courier New]/pm inspect[/FONT] (summary, per-pack, collisions, exportable report) and the plugin API.
+[*][B]Validation + Rollback[/B] - Checks [FONT=Courier New]pack.mcmeta[/FONT] structure, JSON syntax, and missing texture/model references after every merge; if a merge trips errors, the previous pack stays live for players instead of shipping broken output.
+[*][B]pack_format Guardrail[/B] - Warns (or errors) when the merged pack's [FONT=Courier New]pack_format[/FONT] doesn't match the running server version. Honors [FONT=Courier New]supported_formats[/FONT] ranges and tracks the latest Minecraft versions.
+[*][B]Orphan Asset Detection[/B] - Finds unreferenced textures/sounds so you can trim bloated packs.
+[*][B]In-Game Priority Reordering[/B] - [FONT=Courier New]/pm priority up|down|top|bottom|set <pack>[/FONT] edits config and re-merges live.
+[*][B]Profiles / Presets[/B] - Flip whole pack compositions atomically via [FONT=Courier New]/pm profile switch <name>[/FONT] for seasonal events or A/B tests.
+[*][B]Remote Pack Sources[/B] - Declare pack URLs in config; PackMerger downloads + caches them with ETag / Last-Modified and bearer/basic auth using [FONT=Courier New]${ENV_VAR}[/FONT] substitution. [FONT=Courier New]/pm fetch[/FONT] to refresh.
+[*][B]Flexible Hosting[/B] - Built-in HTTP host (no third-party service; optional auto port), a self-hosted Polymath instance, or any S3-compatible store (AWS S3, Cloudflare R2, Backblaze B2) with content-addressed keys + retention and public or presigned URLs.
+[*][B]Bedrock / Geyser Conversion[/B] (opt-in, experimental) - Converts the merged pack's custom item icons into a Bedrock pack + Geyser custom-item mappings so Bedrock players see the same custom items, with optional auto-deploy into Geyser's folders. Targets 2D item icons (1.21.4+ item-definition format); 3D geometry not yet converted.
+[*][B]Network-Wide Distribution[/B] (optional) - A companion Velocity proxy plugin offers the merged pack to players from the proxy instead of each backend sending its own; backends can push live URL/hash updates to it over a plugin channel.
+[*][B]Auto-Distribution on Join[/B] - The pack is sent to players automatically when they connect, with player-cache tracking that skips re-sending when the SHA-1 already matches.
+[*][B]Per-Server Composition[/B] - Multi-server networks can include/exclude packs per backend.
+[*][B]Hot Reload[/B] - Watches the packs folder and auto-merges on changes with configurable debounce.
+[*][B]Custom Overrides[/B] - Drop a [FONT=Courier New]pack.mcmeta[/FONT] or [FONT=Courier New]pack.png[/FONT] into the packs folder to override the merged metadata/icon.
+[*][B]Plugin API + Bukkit Events[/B] - [FONT=Courier New]PackMergedEvent[/FONT], [FONT=Courier New]PackUploadedEvent[/FONT], [FONT=Courier New]PackValidationFailedEvent[/FONT], and more — other plugins react without log-scraping.
+[*][B]Brigadier Commands[/B] - Full tab completion via Paper's modern command API; all player-facing text is externalized in [FONT=Courier New]messages_en.yml[/FONT].
+[*][B]Lean Jar[/B] - Ships ~360 KB; heavy optional dependencies (the S3 SDK) are downloaded on first enable and verified by SHA-256.
 [/LIST]
 
 [CENTER][SIZE=5][COLOR=#ED3A3D][B]━━━━━━━━━━ Requirements ━━━━━━━━━━[/B][/COLOR][/SIZE][/CENTER]
 
 [LIST]
-[*][B]Paper 1.21+[/B] (built against Paper API 1.21.4)
-[*][B]Java 21+[/B]
+[*][B]Paper 26.1+[/B] (built against Paper API 26.1.2)
+[*][B]Java 25+[/B]
 [*]Tested on Paper and Folia-compatible forks
 [/LIST]
 

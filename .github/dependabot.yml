@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Gradle dependencies (resolved from gradle/libs.versions.toml + build.gradle).
+  # This is what proposes the deferred major bumps (MinIO 9.x, JUnit 6.x) as
+  # separate PRs that the CI workflow validates before merge.
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Keep routine patch/minor bumps in one PR to cut review noise.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions pinned in .github/workflows/*.yml
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

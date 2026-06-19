@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+}
+
+// group + version come from the root build.gradle.
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Gson is provided at runtime by paper-api (this module is shaded into the
+    // :plugin jar, which runs inside Paper). Tests need it on the classpath.
+    compileOnly libs.gson
+    testImplementation libs.gson
+    testImplementation platform(libs.junit.bom)
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

@@ -1,0 +1,15 @@
+name: PackMerger
+version: '${version}'
+main: sh.pcx.packmerger.loader.PackMergerLoader
+api-version: '26.1'
+folia-supported: true
+author: PCX Network
+description: Merges multiple resource packs and hosts them externally
+
+permissions:
+  packmerger.admin:
+    description: Access to all PackMerger commands
+    default: op
+  packmerger.notify:
+    description: Receive notifications when a new resource pack is available
+    default: true
