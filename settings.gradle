@@ -2,3 +2,5 @@ rootProject.name = 'PackMerger'
 
 include 'plugin'
 include 'bedrock'
+include 'common'
+include 'proxy-velocity'

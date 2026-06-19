@@ -17,6 +17,8 @@ import sh.pcx.packmerger.commands.PackMergerCommand;
 import sh.pcx.packmerger.bedrock.BedrockConversionResult;
 import sh.pcx.packmerger.bedrock.BedrockConverter;
 import sh.pcx.packmerger.bedrock.BedrockConverterOptions;
+import sh.pcx.packmerger.common.PackInfo;
+import sh.pcx.packmerger.common.PackMessaging;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.distribution.PackDistributor;
@@ -200,6 +202,10 @@ public class PackMergerBootstrap implements PackMergerApi {
 
         // Register event listeners for player join and resource pack status tracking
         Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(this), loader);
+
+        // Outgoing channel used to relay the current pack URL/hash to a Velocity/
+        // Bungee proxy for network-wide distribution (see distribution.proxy-notify).
+        Bukkit.getMessenger().registerOutgoingPluginChannel(loader, PackMessaging.CHANNEL);
 
         // Periodically save the player cache to disk every 5 minutes to prevent
         // data loss on unclean shutdowns. Uses AsyncScheduler so it works on
@@ -445,6 +451,9 @@ public class PackMergerBootstrap implements PackMergerApi {
                         logger.upload("Pack uploaded successfully: " + url);
 
                         Bukkit.getPluginManager().callEvent(new PackUploadedEvent(url, hash));
+
+                        // Relay the new URL/hash to a proxy for network-wide distribution.
+                        broadcastPackToProxy(url, hashHex);
 
                         if (sender != null) {
                             // Return to main thread for player messaging
@@ -698,6 +707,30 @@ public class PackMergerBootstrap implements PackMergerApi {
         } catch (IOException e) {
             logger.warning("[bedrock] auto-deploy failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Relays the current pack URL/hash to a Velocity/Bungee proxy (over the
+     * {@link PackMessaging#CHANNEL} plugin channel, via a connected player) so the
+     * proxy can offer it network-wide. Best-effort and gated by
+     * {@code distribution.proxy-notify}; if no player is online the proxy keeps
+     * using its configured URL until one joins.
+     */
+    private void broadcastPackToProxy(String url, String hashHex) {
+        if (!configManager.isProxyNotify() || url == null || url.isEmpty()) return;
+        byte[] payload = PackMessaging.encode(new PackInfo(url, hashHex));
+        // Plugin messaging must run on a server-owned thread (Folia-safe via the
+        // global region scheduler) and travel through a connected player.
+        Bukkit.getGlobalRegionScheduler().run(loader, task -> {
+            var players = Bukkit.getOnlinePlayers();
+            if (players.isEmpty()) {
+                logger.debug("[proxy] no players online to relay the pack update; "
+                        + "the proxy keeps its configured URL until one joins");
+                return;
+            }
+            players.iterator().next().sendPluginMessage(loader, PackMessaging.CHANNEL, payload);
+            logger.debug("[proxy] relayed pack update to the proxy");
+        });
     }
 
     /**

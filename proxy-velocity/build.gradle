@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    alias(libs.plugins.shadow)
+}
+
+// group + version come from the root build.gradle.
+
+base {
+    archivesName = 'PackMerger-Velocity'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    compileOnly libs.velocity.api
+    annotationProcessor libs.velocity.api   // generates velocity-plugin.json from @Plugin
+    implementation project(':common')        // shaded into the proxy jar
+}
+
+tasks.named('shadowJar') {
+    archiveClassifier.set('')
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('shadowJar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

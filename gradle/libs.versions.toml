@@ -13,10 +13,12 @@ minio = "8.6.0"
 gson = "2.14.0"
 # JUnit 6.x is a major bump; kept on 5.x here, Dependabot proposes 6.x under CI.
 junit = "5.14.4"
+velocity = "3.4.0"
 shadow = "9.4.2"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
 minio = { module = "io.minio:minio", version.ref = "minio" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

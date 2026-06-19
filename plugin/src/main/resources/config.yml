@@ -472,6 +472,13 @@ distribution:
     # Default: (see below)
     notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
 
+  # Push the merged pack's URL + SHA-1 to a Velocity/Bungee proxy so the pack is
+  # offered network-wide from the proxy (instead of each backend sending its own).
+  # Requires the PackMerger proxy plugin (PackMerger-Velocity) installed on the
+  # proxy. The proxy can also be given the URL directly in its own config.
+  # Off by default.
+  proxy-notify: false
+
 # =============================================================================
 # Bedrock / Geyser (optional)
 # =============================================================================

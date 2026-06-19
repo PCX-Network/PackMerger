@@ -202,6 +202,9 @@ public class ConfigManager {
     /** MiniMessage-formatted notification sent when {@code onNewPackAction} is "notify". */
     private String notifyMessage;
 
+    /** Whether to push the pack URL/hash to a Velocity/Bungee proxy for network-wide distribution. */
+    private boolean proxyNotify;
+
     // -------------------------------------------------------------------------
     // Validation
     // -------------------------------------------------------------------------
@@ -376,6 +379,7 @@ public class ConfigManager {
         onNewPackAction = config.getString("distribution.on-new-pack.action", "notify");
         notifyMessage = config.getString("distribution.on-new-pack.notify-message",
                 "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>");
+        proxyNotify = config.getBoolean("distribution.proxy-notify", false);
 
         // Remote packs — optional
         remotePacks.clear();
@@ -637,6 +641,9 @@ public class ConfigManager {
 
     /** @return the MiniMessage notification text for the "notify" action */
     public String getNotifyMessage() { return notifyMessage; }
+
+    /** @return {@code true} if the pack URL/hash should be pushed to a proxy for network-wide distribution */
+    public boolean isProxyNotify() { return proxyNotify; }
 
     // -------------------------------------------------------------------------
     // Getters — Validation

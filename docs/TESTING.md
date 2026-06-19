@@ -75,3 +75,16 @@ relying on it:
 3. Reload/restart Geyser, join with a **Bedrock** client, and verify the custom item
    icons render. Enable `bedrock.debug` to see which items/models were skipped
    (e.g. 3D models, which the items-definition subset does not convert).
+
+### Velocity proxy (network-wide distribution)
+
+The `:common` codec is unit-tested (`PackMessagingTest`); the end-to-end relay needs a
+real proxy + backend:
+
+1. Build both jars (`./gradlew build`): `plugin/build/libs/PackMerger-<v>.jar` for each
+   backend, `proxy-velocity/build/libs/PackMerger-Velocity-<v>.jar` for the proxy.
+2. Set `url=` in the proxy's `plugins/packmerger/config.properties`; join via the proxy
+   and confirm the pack is offered.
+3. Set `distribution.proxy-notify: true` on a backend, trigger a merge with a player
+   online, and confirm the proxy logs "pack updated from backend" and offers the new
+   URL to the next join.

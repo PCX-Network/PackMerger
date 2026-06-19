@@ -31,6 +31,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 - **Remote pack sources** — declare HTTPS URLs in config; PackMerger downloads and caches into `packs/.remote-cache/`, honors ETag / Last-Modified, supports bearer + basic auth with env-var substitution
 - **Multiple upload providers** — self-hosted HTTP, Polymath, or any S3-compatible object store (AWS S3 / Cloudflare R2 / Backblaze B2) with content-addressed keys, retention, and optional presigned URLs
 - **Bedrock / Geyser conversion** (opt-in, experimental) — converts the merged pack's custom item icons into a Bedrock pack + Geyser custom-item mappings so Bedrock players see the same custom items, with optional auto-deploy into Geyser's folders
+- **Network-wide distribution** (optional) — a companion Velocity proxy plugin (`PackMerger-Velocity`) offers the merged pack to players from the proxy; backends can push live URL/hash updates to it over a plugin channel
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
@@ -343,6 +344,23 @@ item-definition format (`custom_model_data` → model → `layer0` texture). 3D
 block/geometry models are not yet converted and are reported as warnings (enable
 `bedrock.debug` to list them). It's off by default — turn it on only if you run
 Geyser, and verify the result with a real Bedrock client.
+
+### Network-Wide Distribution (Velocity)
+
+For proxy networks, install the companion **`PackMerger-Velocity`** plugin on the
+proxy. It offers the merged pack to every player as they join the proxy, so you
+don't rely on each backend sending its own. It reuses whatever hosting your
+backends already use — it only needs the pack URL.
+
+Set the URL in the proxy plugin's `plugins/packmerger/config.properties`
+(`url=`, optional `sha1=`, `required=`, `prompt=`). To keep a content-addressed
+URL current automatically, set `distribution.proxy-notify: true` on your backend
+PackMerger instances: after each upload the backend relays the new URL + SHA-1 to
+the proxy over the `packmerger:pack` plugin channel (via a connected player), and
+the proxy offers the updated pack to subsequent joins.
+
+> Both jars are published with each release: `PackMerger-<version>.jar` (backend)
+> and `PackMerger-Velocity-<version>.jar` (proxy).
 
 ### Plugin API (experimental)
 
