@@ -482,6 +482,13 @@ value is whatever the highest-priority `pack.mcmeta` says.
 - Remove unnecessary packs or textures from the packs folder
 - For very large packs (200+ MB), consider using a CDN or Polymath for faster downloads
 
+## Metrics
+
+PackMerger uses [bStats](https://bstats.org/plugin/bukkit/PackMerger/32086) to collect
+anonymous usage statistics (server count, versions, etc.). No personal or
+server-identifying data is collected. To opt out, set `enabled: false` in
+`plugins/bStats/config.yml` (this disables bStats for every plugin on the server).
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

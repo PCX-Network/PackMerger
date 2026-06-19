@@ -6,7 +6,7 @@ import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
 import io.minio.UploadObjectArgs;
-import io.minio.http.Method;
+import io.minio.Http;
 import io.minio.messages.Item;
 import sh.pcx.packmerger.PackMergerBootstrap;
 import sh.pcx.packmerger.PluginLogger;
@@ -133,7 +133,7 @@ public class S3UploadProvider implements UploadProvider {
     private String buildPublicUrl(String key) throws Exception {
         if (cfg.isPrivateAcl()) {
             return client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
-                    .method(Method.GET)
+                    .method(Http.Method.GET)
                     .bucket(cfg.bucket())
                     .object(key)
                     .expiry(cfg.presignHours(), TimeUnit.HOURS)

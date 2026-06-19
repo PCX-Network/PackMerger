@@ -213,6 +213,14 @@ public class PackMergerBootstrap implements PackMergerApi {
         Bukkit.getAsyncScheduler().runAtFixedRate(loader, task -> cacheManager.save(),
                 5, 5, TimeUnit.MINUTES);
 
+        // bStats metrics (https://bstats.org/plugin/bukkit/PackMerger/32086).
+        // Guarded so a scheduler incompatibility (e.g. on Folia) can't fail enable.
+        try {
+            new org.bstats.bukkit.Metrics(loader, 32086);
+        } catch (Throwable t) {
+            logger.debug("bStats metrics not started: " + t.getMessage());
+        }
+
         logger.info("PackMerger enabled!");
 
         // Kick off the initial merge if configured to do so, but wait for the

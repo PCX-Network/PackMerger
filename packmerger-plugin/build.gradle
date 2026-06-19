@@ -40,6 +40,9 @@ dependencies {
     // critical path. Not worth the runtime-download indirection.
     implementation libs.commons.compress
 
+    // bStats metrics — shaded + relocated (required by bStats).
+    implementation libs.bstats
+
     // MinIO (S3 upload provider). compileOnly for compilation; runtimeDownload
     // for the loader to pull at startup. Transitive closure is resolved from
     // the runtimeDownload configuration and shipped in RuntimeDependencies.java.
@@ -107,9 +110,13 @@ tasks.named('test') {
 tasks.named('shadowJar') {
     archiveClassifier.set('')
     relocate 'org.apache.commons.compress', 'sh.pcx.packmerger.libs.commons.compress'
+    relocate 'org.bstats', 'sh.pcx.packmerger.libs.bstats'
 
     mergeServiceFiles()
-    minimize()
+    minimize {
+        // bStats wires charts reflectively; keep all its classes.
+        exclude(dependency('org.bstats:.*:.*'))
+    }
 }
 
 tasks.named('build') {

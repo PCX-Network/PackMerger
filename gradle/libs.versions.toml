@@ -7,12 +7,12 @@
 # `26.1.2.build.<n>-stable` if you need fully reproducible compiles.
 paper = "26.1.2.build.+"
 commons-compress = "1.28.0"
-# MinIO 9.x is a major bump (compiled against in S3UploadProvider); kept on the
-# 8.x line here and left for Dependabot to propose 9.x under CI verification.
-minio = "8.6.0"
+# MinIO 9.x is a major API rewrite (io.minio.http.Method -> io.minio.Http.Method);
+# S3UploadProvider was migrated for it. The runtime S3 upload path is not CI-verified.
+minio = "9.0.3"
 gson = "2.14.0"
-# JUnit 6.x is a major bump; kept on 5.x here, Dependabot proposes 6.x under CI.
-junit = "5.14.4"
+junit = "6.1.0"
+bstats = "3.2.1"
 velocity = "3.4.0"
 shadow = "9.4.2"
 
@@ -25,6 +25,7 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+bstats = { module = "org.bstats:bstats-bukkit", version.ref = "bstats" }
 
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
