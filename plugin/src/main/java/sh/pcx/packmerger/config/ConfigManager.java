@@ -91,6 +91,22 @@ public class ConfigManager {
     private final Map<String, PluginPackSetting> pluginPackSettings = new HashMap<>();
 
     // -------------------------------------------------------------------------
+    // Bedrock (Geyser) conversion
+    // -------------------------------------------------------------------------
+
+    /** Whether to convert the merged pack to Bedrock for Geyser players. Off by default. */
+    private boolean bedrockEnabled;
+
+    /** Whether to auto-deploy the generated .mcpack + mappings into Geyser's folders. */
+    private boolean bedrockAutoDeploy;
+
+    /** Geyser plugin data folder; empty = auto-detect {@code plugins/Geyser-Spigot}. */
+    private String bedrockGeyserFolder;
+
+    /** Verbose per-item conversion logging. */
+    private boolean bedrockDebug;
+
+    // -------------------------------------------------------------------------
     // Merge settings
     // -------------------------------------------------------------------------
 
@@ -409,6 +425,12 @@ public class ConfigManager {
             }
         }
 
+        // Bedrock (Geyser) conversion — off by default
+        bedrockEnabled = config.getBoolean("bedrock.enabled", false);
+        bedrockAutoDeploy = config.getBoolean("bedrock.auto-deploy-to-geyser", true);
+        bedrockGeyserFolder = config.getString("bedrock.geyser-folder", "");
+        bedrockDebug = config.getBoolean("bedrock.debug", false);
+
         // Validation
         packFormatCheckMode = config.getString("validation.pack-format-check", "warn");
         rollbackOnErrors = config.getBoolean("validation.rollback-on-errors", true);
@@ -518,6 +540,22 @@ public class ConfigManager {
     public PluginPackSetting getPluginPackSetting(String alias) {
         return pluginPackSettings.get(alias.toLowerCase());
     }
+
+    // -------------------------------------------------------------------------
+    // Getters — Bedrock
+    // -------------------------------------------------------------------------
+
+    /** @return {@code true} if the merged pack should be converted to Bedrock (default {@code false}) */
+    public boolean isBedrockEnabled() { return bedrockEnabled; }
+
+    /** @return {@code true} if generated Bedrock outputs should be copied into Geyser's folders */
+    public boolean isBedrockAutoDeploy() { return bedrockAutoDeploy; }
+
+    /** @return the Geyser data folder override, or empty to auto-detect {@code plugins/Geyser-Spigot} */
+    public String getBedrockGeyserFolder() { return bedrockGeyserFolder; }
+
+    /** @return {@code true} for verbose per-item Bedrock conversion logging */
+    public boolean isBedrockDebug() { return bedrockDebug; }
 
     // -------------------------------------------------------------------------
     // Getters — Merge

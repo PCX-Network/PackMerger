@@ -34,6 +34,10 @@ configurations {
 dependencies {
     compileOnly libs.paper.api
 
+    // Bedrock converter module — shaded into the plugin jar (pure Java + Gson,
+    // which Paper provides at runtime).
+    implementation project(':bedrock')
+
     // Commons-compress stays shaded — small, zip-adjacent, loaded on the
     // critical path. Not worth the runtime-download indirection.
     implementation libs.commons.compress

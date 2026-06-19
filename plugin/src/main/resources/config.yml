@@ -473,6 +473,29 @@ distribution:
     notify-message: "<yellow>[PackMerger]</yellow> <gray>A new resource pack is available. Rejoin or use F3+T to reload.</gray>"
 
 # =============================================================================
+# Bedrock / Geyser (optional)
+# =============================================================================
+
+# Convert the merged Java pack into a Bedrock resource pack (+ Geyser custom-item
+# mappings) so Bedrock/Floodgate players see the same custom items as Java players.
+#
+# SCOPE: this converts 2D custom item icons declared via the 1.21.4+ item-definition
+# format (custom_model_data → model → layer0 texture). 3D block/geometry models are
+# not yet converted. The generated .mcpack + <name>.geyser.json are written to
+# output/bedrock/ and, when auto-deploy is on, copied into Geyser's packs/ and
+# custom_mappings/ folders (restart Geyser or reload it to apply).
+#
+# Disabled by default — enable it only if you run Geyser, and verify the result with
+# a Bedrock client.
+bedrock:
+  enabled: false
+  auto-deploy-to-geyser: true
+  # Geyser data folder. Empty = auto-detect plugins/Geyser-Spigot.
+  geyser-folder: ""
+  # Verbose per-item conversion logging (lists every item/model that was skipped).
+  debug: false
+
+# =============================================================================
 # Validation
 # =============================================================================
 

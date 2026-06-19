@@ -30,6 +30,7 @@ A Paper plugin that merges multiple Minecraft resource packs into a single pack,
 - **Profiles / presets** — swap whole pack compositions atomically for seasonal events or A/B tests via `/pm profile switch <name>`
 - **Remote pack sources** — declare HTTPS URLs in config; PackMerger downloads and caches into `packs/.remote-cache/`, honors ETag / Last-Modified, supports bearer + basic auth with env-var substitution
 - **Multiple upload providers** — self-hosted HTTP, Polymath, or any S3-compatible object store (AWS S3 / Cloudflare R2 / Backblaze B2) with content-addressed keys, retention, and optional presigned URLs
+- **Bedrock / Geyser conversion** (opt-in, experimental) — converts the merged pack's custom item icons into a Bedrock pack + Geyser custom-item mappings so Bedrock players see the same custom items, with optional auto-deploy into Geyser's folders
 - **Hot reload** — watches the packs folder for changes and auto-merges with configurable debounce
 - **Player cache tracking** — remembers which pack version each player has downloaded to skip redundant re-sends on rejoin
 - **Per-server packs** — supports multi-server networks where each backend needs a different pack composition
@@ -327,6 +328,21 @@ upload:
 Private buckets: set `acl: "private"` and the provider returns a short-lived
 presigned URL instead. The JAR ships MinIO's SDK shaded and relocated, so it
 coexists with other plugins that bundle OkHttp or Jackson.
+
+### Bedrock / Geyser Conversion (experimental)
+
+If you run [Geyser](https://geysermc.org/), set `bedrock.enabled: true` and
+PackMerger will convert the merged pack's custom items into a Bedrock resource
+pack plus a Geyser custom-item mappings file, so Bedrock (Floodgate) players see
+the same custom items as Java players. The `.mcpack` and `<name>.geyser.json` are
+written to `output/bedrock/` and, with `auto-deploy-to-geyser: true`, copied into
+Geyser's `packs/` and `custom_mappings/` folders (restart/reload Geyser to apply).
+
+**Scope:** this converts 2D custom item icons declared via the 1.21.4+
+item-definition format (`custom_model_data` → model → `layer0` texture). 3D
+block/geometry models are not yet converted and are reported as warnings (enable
+`bedrock.debug` to list them). It's off by default — turn it on only if you run
+Geyser, and verify the result with a real Bedrock client.
 
 ### Plugin API (experimental)
 

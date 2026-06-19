@@ -7,12 +7,16 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import sh.pcx.packmerger.api.PackMergerApi;
+import sh.pcx.packmerger.api.events.PackBedrockConvertedEvent;
 import sh.pcx.packmerger.api.events.PackMergeStartedEvent;
 import sh.pcx.packmerger.api.events.PackMergedEvent;
 import sh.pcx.packmerger.api.events.PackUploadFailedEvent;
 import sh.pcx.packmerger.api.events.PackUploadedEvent;
 import sh.pcx.packmerger.api.events.PackValidationFailedEvent;
 import sh.pcx.packmerger.commands.PackMergerCommand;
+import sh.pcx.packmerger.bedrock.BedrockConversionResult;
+import sh.pcx.packmerger.bedrock.BedrockConverter;
+import sh.pcx.packmerger.bedrock.BedrockConverterOptions;
 import sh.pcx.packmerger.config.ConfigManager;
 import sh.pcx.packmerger.config.MessageManager;
 import sh.pcx.packmerger.distribution.PackDistributor;
@@ -430,6 +434,9 @@ public class PackMergerBootstrap implements PackMergerApi {
                 // output and validation result before it's shipped.
                 Bukkit.getPluginManager().callEvent(new PackMergedEvent(outputFile, hash, provenance, validationResult));
 
+                // Convert to a Bedrock pack for Geyser players (opt-in; off by default).
+                convertBedrockIfEnabled(outputFile);
+
                 // Step 4: Upload the merged pack if auto-upload is enabled
                 if (configManager.isAutoUpload()) {
                     try {
@@ -621,6 +628,75 @@ public class PackMergerBootstrap implements PackMergerApi {
             Files.deleteIfExists(f.toPath());
         } catch (IOException e) {
             logger.debug("Could not delete " + f.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Converts the merged Java pack to a Bedrock pack + Geyser custom-item mappings
+     * when {@code bedrock.enabled} is set, and (optionally) deploys the outputs into
+     * Geyser's folders. Best-effort: any failure is logged, never fatal to the merge.
+     */
+    private void convertBedrockIfEnabled(File mergedPack) {
+        if (!configManager.isBedrockEnabled()) return;
+        try {
+            File bedrockOut = new File(getOutputFolder(), "bedrock");
+            bedrockOut.mkdirs();
+            String packName = "PackMerger-" + configManager.getServerName();
+            BedrockConversionResult result = new BedrockConverter(
+                    new BedrockConverterOptions(packName, configManager.isBedrockDebug()))
+                    .convert(mergedPack.toPath(), bedrockOut.toPath());
+
+            if (configManager.isBedrockDebug()) {
+                result.warnings().forEach(w -> logger.debug("[bedrock] " + w));
+            }
+            if (!result.producedAnything()) {
+                logger.info("[bedrock] no convertible custom items found ("
+                        + result.warnings().size() + " note(s); enable bedrock.debug for detail)");
+                return;
+            }
+            logger.info("[bedrock] converted " + result.itemsConverted() + " item(s), "
+                    + result.texturesCopied() + " texture(s) → " + result.mcpackFile().getFileName());
+
+            if (configManager.isBedrockAutoDeploy()) {
+                deployToGeyser(result);
+            }
+            Bukkit.getPluginManager().callEvent(new PackBedrockConvertedEvent(
+                    result.mcpackFile().toString(),
+                    result.geyserMappingsFile() == null ? null : result.geyserMappingsFile().toString(),
+                    result.itemsConverted()));
+        } catch (Exception e) {
+            logger.error("[bedrock] conversion failed (" + e.getMessage() + ")", e);
+        }
+    }
+
+    /** Copies the generated {@code .mcpack} + mappings into the Geyser data folder. */
+    private void deployToGeyser(BedrockConversionResult result) {
+        String override = configManager.getBedrockGeyserFolder();
+        File geyserFolder = (override != null && !override.isBlank())
+                ? new File(override)
+                : new File(getLoader().getDataFolder().getParentFile(), "Geyser-Spigot");
+        if (!geyserFolder.isDirectory()) {
+            logger.warning("[bedrock] Geyser folder not found at " + geyserFolder.getPath()
+                    + " — skipping auto-deploy (set bedrock.geyser-folder)");
+            return;
+        }
+        try {
+            File packs = new File(geyserFolder, "packs");
+            packs.mkdirs();
+            Files.copy(result.mcpackFile(),
+                    new File(packs, result.mcpackFile().getFileName().toString()).toPath(),
+                    StandardCopyOption.REPLACE_EXISTING);
+            if (result.geyserMappingsFile() != null) {
+                File mappings = new File(geyserFolder, "custom_mappings");
+                mappings.mkdirs();
+                Files.copy(result.geyserMappingsFile(),
+                        new File(mappings, result.geyserMappingsFile().getFileName().toString()).toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+            logger.info("[bedrock] deployed to Geyser at " + geyserFolder.getPath()
+                    + " (restart Geyser or run its reload to apply)");
+        } catch (IOException e) {
+            logger.warning("[bedrock] auto-deploy failed: " + e.getMessage());
         }
     }
 

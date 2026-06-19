@@ -62,3 +62,16 @@ Repeat the above on a Folia build of the same version. Pay attention to:
   cancelled cleanly (no console error).
 - **`/pm` commands and the 5-minute cache save**: run on the async scheduler;
   confirm no `BukkitScheduler`-on-Folia exceptions appear.
+
+### Bedrock / Geyser (when `bedrock.enabled: true`)
+
+The converter's deterministic parts are unit-tested (`BedrockConverterTest`), but the
+end-to-end result can only be confirmed against a live Geyser server — do this before
+relying on it:
+
+1. Install Geyser (+ Floodgate) and merge a pack containing CMD-based custom items.
+2. Confirm `output/bedrock/PackMerger-<server>.mcpack` and `…geyser.json` are written,
+   and (with auto-deploy) copied into Geyser's `packs/` and `custom_mappings/`.
+3. Reload/restart Geyser, join with a **Bedrock** client, and verify the custom item
+   icons render. Enable `bedrock.debug` to see which items/models were skipped
+   (e.g. 3D models, which the items-definition subset does not convert).
