@@ -11,10 +11,10 @@ commons-compress = "1.28.0"
 # S3UploadProvider was migrated for it. The runtime S3 upload path is not CI-verified.
 minio = "9.0.3"
 gson = "2.14.0"
-junit = "6.1.0"
+junit = "6.1.1"
 bstats = "3.2.1"
 velocity = "3.4.0"
-shadow = "9.4.2"
+shadow = "9.4.3"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
